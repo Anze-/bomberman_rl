@@ -30,7 +30,8 @@ class Timekeeper:
 
 
 def world_controller(world, n_rounds, *,
-                     gui, every_step, turn_based, make_video, update_interval):
+                     gui, every_step, turn_based, make_video, update_interval,
+                     skip_end_round=False):
     if make_video and not gui.screenshot_dir.exists():
         gui.screenshot_dir.mkdir()
 
@@ -79,17 +80,18 @@ def world_controller(world, n_rounds, *,
             gui.make_video()
 
         # Render end screen until next round is queried
-        if gui is not None:
-            do_continue = False
-            while not do_continue:
-                render(True)
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        return
-                    elif event.type == pygame.KEYDOWN:
-                        key_pressed = event.key
-                        if key_pressed in s.INPUT_MAP or key_pressed in ESCAPE_KEYS:
-                            do_continue = True
+        if skip_end_round:
+            if gui is not None:
+                do_continue = False
+                while not do_continue:
+                    render(True)
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            return
+                        elif event.type == pygame.KEYDOWN:
+                            key_pressed = event.key
+                            if key_pressed in s.INPUT_MAP or key_pressed in ESCAPE_KEYS:
+                                do_continue = True
 
     world.end()
 
@@ -158,6 +160,9 @@ def main(argv = None):
             args.continue_without_training = True
         if args.my_agent:
             agents.append((args.my_agent, len(agents) < args.train))
+            # args.agents = [args.my_agent] * (s.MAX_AGENTS)
+
+            #QUI METTE 3 RULE BASED AGENT
             args.agents = ["rule_based_agent"] * (s.MAX_AGENTS - 1)
         for agent_name in args.agents:
             agents.append((agent_name, len(agents) < args.train))
@@ -175,9 +180,16 @@ def main(argv = None):
         gui = GUI(world)
     else:
         gui = None
-    world_controller(world, args.n_rounds,
-                     gui=gui, every_step=every_step, turn_based=args.turn_based,
-                     make_video=args.make_video, update_interval=args.update_interval)
+
+    fitness = 0
+    i=0
+    while fitness < 100:
+        print("GEN ", i)
+        world_controller(world, args.n_rounds, skip_end_round=True,
+                         gui=gui, every_step=every_step, turn_based=args.turn_based,
+                         make_video=args.make_video, update_interval=args.update_interval)
+        i+=1
+        fitness += 25
 
 
 if __name__ == '__main__':
