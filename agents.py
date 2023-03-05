@@ -54,6 +54,7 @@ class Agent:
     """
 
     def __init__(self, agent_name, code_name, display_name, train: bool, backend: "AgentBackend", avatar_sprite_desc, bomb_sprite_desc):
+
         self.backend = backend
 
         # Load custom avatar or standard robot avatar of assigned color
@@ -101,6 +102,9 @@ class Agent:
 
         self.last_game_state = None
         self.last_action = None
+
+        self.genetic_agent_net = None
+        self.genome = None
 
         self.setup()
 
@@ -151,6 +155,8 @@ class Agent:
         """Add delta to both the current round's score and the total score."""
         self.score += delta
         self.total_score += delta
+
+        self.genome.fitness += delta
 
     def process_game_events(self, game_state):
         self.backend.send_event("game_events_occurred", self.last_game_state, self.last_action, game_state, self.events)
