@@ -106,6 +106,8 @@ class Agent:
         self.genetic_agent_net = None
         self.genome = None
 
+        self.history = []
+
         self.setup()
 
     def setup(self):
@@ -115,6 +117,15 @@ class Agent:
         if self.train:
             self.backend.send_event("setup_training")
             self.backend.get("setup_training")
+
+    # add actions to history and return true if there is the same action for 20 times
+    def add_action(self, action):
+        self.history.append(action)
+        if len(self.history) > 50:
+            self.history.pop(0)
+        if len(set(self.history)) == 1:
+            return True
+        return False
 
     def __str__(self):
         return f"Agent {self.name} under control of {self.code_name}"
@@ -156,7 +167,7 @@ class Agent:
         self.score += delta
         self.total_score += delta
 
-        self.genome.fitness += delta
+        self.genome.fitness += 50
 
     def process_game_events(self, game_state):
         self.backend.send_event("game_events_occurred", self.last_game_state, self.last_action, game_state, self.events)
