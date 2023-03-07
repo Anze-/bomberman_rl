@@ -56,9 +56,29 @@ def look_for_targets(free_space, start, targets, logger=None):
         current = parent_dict[current]
 
 
-def compute_distance(agent_x, agent_y, point_x, point_y):
-    dist = math.sqrt((point_x - agent_x) ** 2 + (point_y - agent_y) ** 2)
-    return dist
+def compute_distance(objects, agent_x, agent_y, gui):
+    distance = 9999
+    minx, miny = 9999, 9999
+    for i, elem in enumerate(objects):
+        res = type(elem) is tuple
+        if res:
+            xb = elem[0][0]
+            yb = elem[0][1]
+        else:
+            xb = elem[0]
+            yb = elem[1]
+
+        d = math.sqrt((xb - agent_x) ** 2 + (yb - agent_y) ** 2)
+
+        if d < distance:
+            distance = d
+            minx = xb
+            miny = yb
+
+    if distance != 9999:
+        gui.draw_line(agent_x, agent_y, minx, miny)
+
+    return distance
 
 
 def setup(self):
@@ -101,28 +121,27 @@ def act(self, game_state):
         reset_self(self)
         self.current_round = game_state["round"]
 
+    gui = game_state['gui']
+
     agent_x = game_state['agent_x']
     agent_y = game_state['agent_y']
     bombs_left = game_state["agent_bombs_left"]
-    coins = game_state['coins']
+
 
     # Compute distance to bombs
-    bomb_distance = 9999
+    bomb_distance, coin_distance = 9999, 9999
     bombs = game_state['bombs']
-    if bombs != []:
-        for i, elem in enumerate(bombs):
+    if bombs:
+        bomb_distance = compute_distance(bombs, agent_x, agent_y, gui)
 
-            xb = elem[0][0]
-            yb = elem[0][1]
-            d = compute_distance(agent_x, agent_y, xb, yb)
-            if d < bomb_distance:
-                bomb_distance = d
-
+    coins = game_state['coins']
+    if coins:
+        coin_distance = compute_distance(coins, agent_x, agent_y, gui)
 
     net = game_state['agent_net']
     if net is not None:
         # !! attenzione modifica input ed output della rete in base a come viene settata la visione dell'agente qui sotto
-        output = np.argmax(net.activate((agent_x, agent_y, bombs_left, bomb_distance)))
+        output = np.argmax(net.activate((agent_x, agent_y, bombs_left, bomb_distance, coin_distance)))
         print("output: ", output)
 
         if output == 0:
@@ -146,34 +165,3 @@ def act(self, game_state):
 
     print("ERRORE, RITORNO AZIONE RANDOM")
     return np.random.choice(['RIGHT', 'LEFT', 'UP', 'DOWN', 'BOMB'], p=[.23, .23, .23, .23, .08])
-
-    """state = {
-        'round': self.round,
-        'step': self.step,
-        'field': np.array(self.arena),
-        'self': agent.get_state(),
-        'others': [other.get_state() for other in self.active_agents if other is not agent],
-        'bombs': [bomb.get_state() for bomb in self.bombs],
-        'coins': [coin.get_state() for coin in self.coins if coin.collectable],
-        'user_input': self.user_input,
-    }
-    
-    # Gather information about the game state
-    arena = game_state['field']
-    _, score, bombs_left, (x, y) = game_state['self']
-    bombs = game_state['bombs']
-    bomb_xys = [xy for (xy, t) in bombs]
-    others = [xy for (n, s, b, xy) in game_state['others']]
-
-    bomb_map = np.ones(arena.shape) * 5
-    for (xb, yb), t in bombs:
-        for (i, j) in [(xb + h, yb) for h in range(-3, 4)] + [(xb, yb + h) for h in range(-3, 4)]:
-            if (0 < i < bomb_map.shape[0]) and (0 < j < bomb_map.shape[1]):
-                bomb_map[i, j] = min(bomb_map[i, j], t)
-
-    # If agent has been in the same location three times recently, it's a loop
-    if self.coordinate_history.count((x, y)) > 2:
-        self.ignore_others_timer = 5
-    else:
-        self.ignore_others_timer -= 1
-    self.coordinate_history.append((x, y))"""

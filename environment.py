@@ -22,6 +22,8 @@ WorldArgs = namedtuple("WorldArgs",
                         "continue_without_training", "log_dir", "save_stats", "match_name", "seed", "silence_errors",
                         "scenario"])
 
+GREEN = (124,252,0)
+
 
 class Trophy:
     coin_trophy = pygame.transform.smoothscale(pygame.image.load(s.ASSET_DIR / 'coin.png'), (15, 15))
@@ -152,18 +154,19 @@ class GenericWorld:
         else:
             agent.add_event(e.INVALID_ACTION)
 
-    def poll_and_run_agents(self):
+    def poll_and_run_agents(self, gui=None):
         raise NotImplementedError()
 
     def send_game_events(self):
         pass
 
-    def do_step(self, user_input='WAIT'):
+    def do_step(self, user_input='WAIT', gui=None):
         assert self.running
 
         # a timestep is passed, so the fitness of the agents is increased
-        for agent in self.active_agents:
-            agent.genome.fitness += 1
+        # per ora non assegno fitness se l'agente sopravvive
+        #for agent in self.active_agents:
+        #    agent.genome.fitness += 1
 
         self.step += 1
         self.logger.info(f'STARTING STEP {self.step}')
@@ -171,7 +174,7 @@ class GenericWorld:
         self.user_input = user_input
         self.logger.debug(f'User input: {self.user_input}')
 
-        self.poll_and_run_agents()
+        self.poll_and_run_agents(gui)
 
         # Progress world elements based
         self.collect_coins()
@@ -426,7 +429,7 @@ class BombeRLeWorld(GenericWorld):
 
         return state
 
-    def poll_and_run_agents(self):
+    def poll_and_run_agents(self, gui=None):
         # Tell agents to act
         for a in self.active_agents:
             state = self.get_state_for_agent(a)
@@ -437,6 +440,7 @@ class BombeRLeWorld(GenericWorld):
                 state["agent_x"] = a.x
                 state["agent_y"] = a.y
                 state["agent_bombs_left"] = a.bombs_left
+                state["gui"] = gui
                 a.act(state)
 
         # Give agents time to decide
@@ -673,3 +677,7 @@ class GUI:
         self.world.logger.info("Done writing videos.")
         for f in self.screenshot_dir.glob(f'{self.world.round_id}_*.png'):
             f.unlink()
+
+    def draw_line(self, agent_x, agent_y, point_x, point_y):
+        pygame.draw.line(self.screen, GREEN, (agent_x, agent_y), (point_x, point_y), 2)
+        pygame.display.flip()

@@ -16,7 +16,6 @@ ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
 gen = 0
 
 
-
 class Timekeeper:
     def __init__(self, interval):
         self.interval = interval
@@ -76,7 +75,7 @@ def world_controller(world, n_rounds, *,
             if world.running and not (turn_based and user_input is None):
 
                 # QUI ESEGUE GLI STEP!!
-                world.do_step(user_input)
+                world.do_step(user_input, gui)
                 user_input = None
             else:
                 # Might want to wait
@@ -203,19 +202,22 @@ def main(argv=None):
         global gen
         gen += 1
 
-        for i, elem in enumerate(genomes):
-            genome_id = elem[0]
-            genome = elem[1]
+        i = 0
+        while i < len(genomes):
+            for index, elem in enumerate(genomes[i:i + 4]):
+                genome_id = elem[0]
+                genome = elem[1]
 
-            genome.fitness = 0
-            net = neat.nn.FeedForwardNetwork.create(genome, config)
-            world.agents[i].genetic_agent_net = net
-            world.agents[i].genome = genome
+                genome.fitness = 0
+                net = neat.nn.FeedForwardNetwork.create(genome, config)
+                world.agents[index].genetic_agent_net = net
+                world.agents[index].genome = genome
 
+                world_controller(world, args.n_rounds, skip_end_round=True,
+                                 gui=gui, every_step=every_step, turn_based=args.turn_based,
+                                 make_video=args.make_video, update_interval=args.update_interval)
 
-        world_controller(world, args.n_rounds, skip_end_round=True,
-                         gui=gui, every_step=every_step, turn_based=args.turn_based,
-                         make_video=args.make_video, update_interval=args.update_interval)
+            i += 4
 
         # collect ge
         for g, agent in zip(genomes, world.agents):
@@ -237,7 +239,7 @@ def main(argv=None):
         # p.add_reporter(neat.Checkpointer(5))
 
         # Run for up to 50 generations.
-        winner = p.run(eval_genomes, 20)
+        winner = p.run(eval_genomes, 1)
 
         # show final stats
         print('\nBest genome:\n{!s}'.format(winner))
