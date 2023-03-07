@@ -200,10 +200,12 @@ def main(argv=None):
 
     def eval_genomes(genomes, config):
         global gen
+        print(f"Generation: {gen}")
         gen += 1
 
         i = 0
         while i < len(genomes):
+
             for index, elem in enumerate(genomes[i:i + 4]):
                 genome_id = elem[0]
                 genome = elem[1]
@@ -213,15 +215,20 @@ def main(argv=None):
                 world.agents[index].genetic_agent_net = net
                 world.agents[index].genome = genome
 
-                world_controller(world, args.n_rounds, skip_end_round=True,
-                                 gui=gui, every_step=every_step, turn_based=args.turn_based,
-                                 make_video=args.make_video, update_interval=args.update_interval)
+            world_controller(world, args.n_rounds, skip_end_round=True,
+                             gui=gui, every_step=every_step, turn_based=args.turn_based,
+                             make_video=args.make_video, update_interval=args.update_interval)
+            # collect ge
+            for g, agent in zip(genomes[i:i + 4], world.agents):
+                print(f"{agent.name} {agent.genome.fitness}")
+                g[1].fitness = agent.genome.fitness
 
             i += 4
 
         # collect ge
-        for g, agent in zip(genomes, world.agents):
-            g[1].fitness = agent.genome.fitness
+        #for g, agent in zip(genomes, world.agents):
+        #    print(f"{agent.name} {agent.genome.fitness}")
+        #    g[1].fitness = agent.genome.fitness
 
     if train_genetic_agent:
         config_file = './agent_code/genetic_agent/config-feedforward.txt'
@@ -239,7 +246,7 @@ def main(argv=None):
         # p.add_reporter(neat.Checkpointer(5))
 
         # Run for up to 50 generations.
-        winner = p.run(eval_genomes, 1)
+        winner = p.run(eval_genomes, 10)
 
         # show final stats
         print('\nBest genome:\n{!s}'.format(winner))

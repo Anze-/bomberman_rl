@@ -56,12 +56,12 @@ def look_for_targets(free_space, start, targets, logger=None):
         current = parent_dict[current]
 
 
-def compute_distance(objects, agent_x, agent_y, gui):
+def compute_distance(objects, agent_x, agent_y, gui, name="", bomb=True):
     distance = 9999
     minx, miny = 9999, 9999
+
     for i, elem in enumerate(objects):
-        res = type(elem) is tuple
-        if res:
+        if bomb:
             xb = elem[0][0]
             yb = elem[0][1]
         else:
@@ -75,8 +75,10 @@ def compute_distance(objects, agent_x, agent_y, gui):
             minx = xb
             miny = yb
 
-    if distance != 9999:
-        gui.draw_line(agent_x, agent_y, minx, miny)
+    #if distance != 9999:
+    #    if name == "genetic_agent_0":
+    #        print(f"agent_x:{agent_x} agent_y:{agent_y} object_x:{minx} object_y:{miny} distance:{distance}")
+    #    #gui.draw_line(agent_x, agent_y, minx, miny)
 
     return distance
 
@@ -125,6 +127,8 @@ def act(self, game_state):
 
     agent_x = game_state['agent_x']
     agent_y = game_state['agent_y']
+    name = game_state['agent_name']
+
     bombs_left = game_state["agent_bombs_left"]
 
 
@@ -132,35 +136,28 @@ def act(self, game_state):
     bomb_distance, coin_distance = 9999, 9999
     bombs = game_state['bombs']
     if bombs:
-        bomb_distance = compute_distance(bombs, agent_x, agent_y, gui)
+        bomb_distance = compute_distance(bombs, agent_x, agent_y, gui, name)
 
-    coins = game_state['coins']
-    if coins:
-        coin_distance = compute_distance(coins, agent_x, agent_y, gui)
+    coins_coords = game_state['coins_coords']
+    if coins_coords:
+        coin_distance = compute_distance(coins_coords, agent_x, agent_y, gui, name, bomb=False)
 
     net = game_state['agent_net']
     if net is not None:
         # !! attenzione modifica input ed output della rete in base a come viene settata la visione dell'agente qui sotto
         output = np.argmax(net.activate((agent_x, agent_y, bombs_left, bomb_distance, coin_distance)))
-        print("output: ", output)
 
         if output == 0:
-            print("RIGHT")
             return "RIGHT"
         if output == 1:
-            print("LEFT")
             return "LEFT"
         if output == 2:
-            print("UP")
             return "UP"
         if output == 3:
-            print("DOWN")
             return "DOWN"
         if output == 4:
-            print("BOMB")
             return "BOMB"
         if output == 5:
-            print("WAIT")
             return "WAIT"
 
     print("ERRORE, RITORNO AZIONE RANDOM")

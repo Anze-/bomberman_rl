@@ -154,6 +154,7 @@ class GenericWorld:
         else:
             agent.add_event(e.INVALID_ACTION)
 
+
     def poll_and_run_agents(self, gui=None):
         raise NotImplementedError()
 
@@ -417,6 +418,7 @@ class BombeRLeWorld(GenericWorld):
             'others': [other.get_state() for other in self.active_agents if other is not agent],
             'bombs': [bomb.get_state() for bomb in self.bombs],
             'coins': [coin.get_state() for coin in self.coins if coin.collectable],
+            'coins_coords': [coin.get_space_coords() for coin in self.coins if coin.collectable],
             'user_input': self.user_input,
         }
 
@@ -441,6 +443,7 @@ class BombeRLeWorld(GenericWorld):
                 state["agent_y"] = a.y
                 state["agent_bombs_left"] = a.bombs_left
                 state["gui"] = gui
+                state["agent_name"] = a.name
                 a.act(state)
 
         # Give agents time to decide

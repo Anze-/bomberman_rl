@@ -179,6 +179,7 @@ class Agent:
     def act(self, game_state):
         self.backend.send_event("act", game_state)
 
+
     def wait_for_act(self):
         action, think_time = self.backend.get_with_time("act")
         self.note_stat("time", think_time)
