@@ -131,10 +131,18 @@ def act(self, game_state):
 
     bombs_left = game_state["agent_bombs_left"]
 
+    others = [xy for (n, s, b, xy) in game_state['others']]
 
     # Compute distance to bombs
     bomb_distance, coin_distance = 9999, 9999
     bombs = game_state['bombs']
+    bomb_xys = [xy for (xy, t) in bombs]
+    arena = game_state['field']
+    bomb_map = np.ones(arena.shape) * 5
+    for (xb, yb), t in bombs:
+        for (i, j) in [(xb + h, yb) for h in range(-3, 4)] + [(xb, yb + h) for h in range(-3, 4)]:
+            if (0 < i < bomb_map.shape[0]) and (0 < j < bomb_map.shape[1]):
+                bomb_map[i, j] = min(bomb_map[i, j], t)
     if bombs:
         bomb_distance = compute_distance(bombs, agent_x, agent_y, gui, name)
 
@@ -142,10 +150,30 @@ def act(self, game_state):
     if coins_coords:
         coin_distance = compute_distance(coins_coords, agent_x, agent_y, gui, name, bomb=False)
 
+    # free nearest tiles
+
+    # stay, right, left, down, up
+    directions_list = [9999,9999,9999,9999,9999]
+
+    directions = [(agent_x, agent_y), (agent_x + 1, agent_y), (agent_x - 1, agent_y), (agent_x, agent_y + 1), (agent_x, agent_y - 1)]
+    valid_tiles, valid_actions = [], []
+    for i, d in enumerate(directions):
+        if ((arena[d] == 0) and
+                (game_state['explosion_map'][d] < 1) and
+                (bomb_map[d] > 0) and
+                (not d in others) and
+                (not d in bomb_xys)):
+            directions_list[i] = 1
+
+
+    if name == "genetic_agent_0":
+        print(f"stay:{directions_list[0]} right:{directions_list[1]} left:{directions_list[2]} down:{directions_list[3]} up:{directions_list[4]}")
+
     net = game_state['agent_net']
     if net is not None:
         # !! attenzione modifica input ed output della rete in base a come viene settata la visione dell'agente qui sotto
-        output = np.argmax(net.activate((agent_x, agent_y, bombs_left, bomb_distance, coin_distance)))
+        output = np.argmax(net.activate((bombs_left, bomb_distance, coin_distance,
+                                         directions_list[1], directions_list[2], directions_list[3], directions_list[4])))
 
         if output == 0:
             return "RIGHT"
