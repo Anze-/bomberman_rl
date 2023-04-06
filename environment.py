@@ -131,38 +131,28 @@ class GenericWorld:
         return is_free
 
     def perform_agent_action(self, agent: Agent, action: str):
-        if agent.add_action(action):
-            agent.genome.fitness -= 50
-
 
         # Perform the specified action if possible, wait otherwise
         if action == 'UP' and self.tile_is_free(agent.x, agent.y - 1):
             agent.y -= 1
             agent.add_event(e.MOVED_UP)
-            agent.genome.fitness += 0.1
         elif action == 'DOWN' and self.tile_is_free(agent.x, agent.y + 1):
             agent.y += 1
             agent.add_event(e.MOVED_DOWN)
-            agent.genome.fitness += 0.1
         elif action == 'LEFT' and self.tile_is_free(agent.x - 1, agent.y):
             agent.x -= 1
             agent.add_event(e.MOVED_LEFT)
-            agent.genome.fitness += 0.1
         elif action == 'RIGHT' and self.tile_is_free(agent.x + 1, agent.y):
             agent.x += 1
             agent.add_event(e.MOVED_RIGHT)
-            agent.genome.fitness += 0.1
         elif action == 'BOMB' and agent.bombs_left:
             self.logger.info(f'Agent <{agent.name}> drops bomb at {(agent.x, agent.y)}')
             self.bombs.append(Bomb((agent.x, agent.y), agent, s.BOMB_TIMER, s.BOMB_POWER, agent.bomb_sprite))
             agent.bombs_left = False
-            agent.genome.fitness += 0.1
             agent.add_event(e.BOMB_DROPPED)
         elif action == 'WAIT':
             agent.add_event(e.WAITED)
         else:
-            # penalize agent for invalid action
-            agent.genome.fitness -= 0.5
             agent.add_event(e.INVALID_ACTION)
 
 
@@ -283,7 +273,9 @@ class GenericWorld:
         # Remove hit agents
         for a in agents_hit:
             a.dead = True
-            a.genome.fitness -= 50
+            if "genetic_agent" in a.name and a.train_genetic:
+                a.genome.fitness -= 50
+
             self.active_agents.remove(a)
             a.add_event(e.GOT_KILLED)
             for aa in self.active_agents:
@@ -450,10 +442,7 @@ class BombeRLeWorld(GenericWorld):
             a.reset_game_events()
             if a.available_think_time > 0:
                 state["agent_net"] = a.genetic_agent_net
-                state["agent_x"] = a.x
-                state["agent_y"] = a.y
                 state["agent_bombs_left"] = a.bombs_left
-                state["agent_name"] = a.name
                 a.act(state)
 
         # Give agents time to decide

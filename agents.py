@@ -83,6 +83,7 @@ class Agent:
         self.code_name = code_name
         self.display_name = display_name
         self.train = train
+        self.train_genetic = False
 
         self.total_score = 0
 
@@ -96,8 +97,7 @@ class Agent:
         self.events = None
         self.available_think_time = None
 
-        self.x = None
-        self.y = None
+
         self.bombs_left = None
 
         self.last_game_state = None
@@ -167,7 +167,8 @@ class Agent:
         self.score += delta
         self.total_score += delta
 
-        self.genome.fitness += 50
+        if self.genome is not None:
+            self.genome.fitness += delta
 
     def process_game_events(self, game_state):
         self.backend.send_event("game_events_occurred", self.last_game_state, self.last_action, game_state, self.events)

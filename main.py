@@ -10,8 +10,10 @@ from fallbacks import pygame, LOADED_PYGAME
 from replay import ReplayWorld
 
 import neat
+import pickle
 
 ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
+
 
 class Timekeeper:
     def __init__(self, interval):
@@ -83,18 +85,18 @@ def world_controller(world, n_rounds, *,
             gui.make_video()
 
         # Render end screen until next round is queried
-        # if skip_end_round:
-        #    if gui is not None:
-        #        do_continue = False
-        #        while not do_continue:
-        #            render(True)
-        #            for event in pygame.event.get():
-        #                if event.type == pygame.QUIT:
-        #                    return
-        #                elif event.type == pygame.KEYDOWN:
-        #                    key_pressed = event.key
-        #                    if key_pressed in s.INPUT_MAP or key_pressed in ESCAPE_KEYS:
-        #                        do_continue = True
+        if skip_end_round:
+            if gui is not None:
+                do_continue = False
+                while not do_continue:
+                    render(True)
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            return
+                        elif event.type == pygame.KEYDOWN:
+                            key_pressed = event.key
+                            if key_pressed in s.INPUT_MAP or key_pressed in ESCAPE_KEYS:
+                                do_continue = True
 
     world.end()
 
@@ -112,6 +114,9 @@ def main(argv=None):
                              help="Explicitly set the agent names in the game")
     play_parser.add_argument("--train", default=0, type=int, choices=[0, 1, 2, 3, 4],
                              help="First … agents should be set to training mode")
+    play_parser.add_argument("--train_genetic", default=False, action="store_true",
+                             help="Trains a genetic agent to play bomberman")
+
     play_parser.add_argument("--continue-without-training", default=False, action="store_true")
     # play_parser.add_argument("--single-process", default=False, action="store_true")
 
@@ -162,28 +167,26 @@ def main(argv=None):
             raise ValueError("pygame could not loaded, cannot run with GUI")
 
     # Initialize environment and agents
-    train_genetic_agent = False
     if args.command_name == "play":
         agents = []
-        if args.train == 0 and not args.continue_without_training:
-            args.continue_without_training = True
+        if args.train_genetic and args.my_agent != "genetic_agent":
+            raise ValueError("You can only train a genetic agent")
+
         if args.my_agent:
-            if args.my_agent == "genetic_agent":
+            if args.train_genetic:
+                # set 4 players as genetic agent
                 args.agents = [args.my_agent] * (s.MAX_AGENTS)
-                train_genetic_agent = True
-
             else:
+                # set 3 players as rule based agent and 1 chosen agent
                 agents.append((args.my_agent, len(agents) < args.train))
-
-                # QUI METTE 3 RULE BASED AGENT
                 args.agents = ["rule_based_agent"] * (s.MAX_AGENTS - 1)
         for agent_name in args.agents:
             agents.append((agent_name, len(agents) < args.train))
 
         world = BombeRLeWorld(args, agents)
         every_step = not args.skip_frames
-    elif args.command_name == "replay":
 
+    elif args.command_name == "replay":
         world = ReplayWorld(args)
         every_step = True
     else:
@@ -196,9 +199,9 @@ def main(argv=None):
         gui = None
 
     def eval_genomes(genomes, config):
-
         i = 0
         while i < len(genomes):
+            # creates 4 agents at a time and runs them
             for index, elem in enumerate(genomes[i:i + 4]):
                 genome_id = elem[0]
                 genome = elem[1]
@@ -206,9 +209,10 @@ def main(argv=None):
                 genome.fitness = 0
                 net = neat.nn.FeedForwardNetwork.create(genome, config)
                 world.agents[index].genetic_agent_net = net
+                world.agents[index].train_genetic = True
                 world.agents[index].genome = genome
 
-            world_controller(world, args.n_rounds, skip_end_round=True,
+            world_controller(world, args.n_rounds, skip_end_round=False,
                              gui=gui, every_step=every_step, turn_based=args.turn_based,
                              make_video=args.make_video, update_interval=args.update_interval)
             # collect ge
@@ -217,7 +221,7 @@ def main(argv=None):
 
             i += 4
 
-    if train_genetic_agent:
+    if args.train_genetic:
         config_file = './agent_code/genetic_agent/config-feedforward.txt'
         config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                     neat.DefaultSpeciesSet, neat.DefaultStagnation,
@@ -232,12 +236,28 @@ def main(argv=None):
         p.add_reporter(stats)
         # p.add_reporter(neat.Checkpointer(5))
 
-        # Run for up to 50 generations.
-        winner = p.run(eval_genomes,20)
+        # Run for up to 20 generations.
+        winner = p.run(eval_genomes, 20)
+
+        # save best genome
+        with open('./agent_code/genetic_agent/winner.pkl', 'wb') as output:
+            pickle.dump(winner, output)
 
         # show final stats
         print('\nBest genome:\n{!s}'.format(winner))
     else:
+        if args.my_agent == "genetic_agent":
+            # load winner network
+            with open("./agent_code/genetic_agent/winner.pkl", "rb") as f:
+                winner = pickle.load(f)
+
+            config_file = './agent_code/genetic_agent/config-feedforward.txt'
+            config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                 neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                 config_file)
+            winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
+            world.agents[0].genetic_agent_net = winner_net
+
         world_controller(world, args.n_rounds, skip_end_round=True,
                          gui=gui, every_step=every_step, turn_based=args.turn_based,
                          make_video=args.make_video, update_interval=args.update_interval)

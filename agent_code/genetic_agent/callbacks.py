@@ -5,7 +5,7 @@ import sys
 sys.path.append("agent_code")
 
 import agent_code.coin_collector_agent.callbacks as coin_collector_agent
-import agent_code.survival_agent.callbacks as survival_agent
+import agent_code.wall_breaker.callbacks as wall_breaker_agent
 import agent_code.rule_based_agent.callbacks as rule_based_agent
 
 def setup(self):
@@ -64,20 +64,20 @@ def act(self, game_state):
         reset_self(self)
         self.current_round = game_state["round"]
 
-    survival_action = survival_agent.act(self, game_state)
+    wb_action = wall_breaker_agent.act(self, game_state)
     coin_collector_action = coin_collector_agent.act(self, game_state)
     rule_based_action = rule_based_agent.act(self, game_state)
 
-    survival_action_number = from_action_to_id(survival_action)
-    coin_collector_action_number = from_action_to_id(coin_collector_action)
-    rule_based_action_number = from_action_to_id(rule_based_action)
+    survival_action_number = from_action_to_id(wb_action, "wb_agent")
+    coin_collector_action_number = from_action_to_id(coin_collector_action, "coin_collector_agent")
+    rule_based_action_number = from_action_to_id(rule_based_action, "rule_based_agent")
 
     net = game_state['agent_net']
     if net is not None:
         output = np.argmax(net.activate((survival_action_number, coin_collector_action_number, rule_based_action_number)))
-
+        # remember to check if the action is None
         if output == 0:
-            return survival_action
+            return wb_action
         if output == 1:
             return coin_collector_action
         if output == 2:
