@@ -12,6 +12,8 @@ from replay import ReplayWorld
 import neat
 import pickle
 
+GENERATION = 0
+
 ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
 
 
@@ -70,9 +72,9 @@ def world_controller(world, n_rounds, *,
                         elif key_pressed in s.INPUT_MAP:
                             user_input = s.INPUT_MAP[key_pressed]
 
+
             # Advances step (for turn based: only if user input is available)
             if world.running and not (turn_based and user_input is None):
-
                 # QUI ESEGUE GLI STEP!!
                 world.do_step(user_input, gui)
                 user_input = None
@@ -199,6 +201,22 @@ def main(argv=None):
         gui = None
 
     def eval_genomes(genomes, config):
+        global GENERATION
+        print("Generation: ", GENERATION)
+        if GENERATION % 2 == 0:
+            args.scenario = "classic"
+        else:
+            args.scenario = "coin-heaven"
+        GENERATION += 1
+
+        # each generation the world is reset - check if it is possible sinse the world-class
+        world = BombeRLeWorld(args, agents)
+        if has_gui:
+            gui = GUI(world)
+        else:
+            gui = None
+
+
         i = 0
         while i < len(genomes):
             # creates 4 agents at a time and runs them
@@ -212,12 +230,23 @@ def main(argv=None):
                 world.agents[index].train_genetic = True
                 world.agents[index].genome = genome
 
+            # execute the world
             world_controller(world, args.n_rounds, skip_end_round=False,
                              gui=gui, every_step=every_step, turn_based=args.turn_based,
                              make_video=args.make_video, update_interval=args.update_interval)
-            # collect ge
+
+            # collect ge and fitness
             for g, agent in zip(genomes[i:i + 4], world.agents):
                 g[1].fitness = agent.genome.fitness
+                print(f"agent {agent.name} fitness: ", agent.genome.fitness)
+
+            # get scores of all agents - no cosi prende lo score dell'ultimo round, deve prendere lo score di tutta la partita
+            scores = [agent.total_score for agent in world.agents]
+            print("scores: ", scores)
+            for agent in world.agents:
+                output = agent.genetic_agent_net.activate(scores)
+                print(f"agent {agent.name} output: ", output)
+                agent.weights = output
 
             i += 4
 
@@ -236,8 +265,8 @@ def main(argv=None):
         p.add_reporter(stats)
         # p.add_reporter(neat.Checkpointer(5))
 
-        # Run for up to 20 generations.
-        winner = p.run(eval_genomes, 20)
+        # Run for up to 10 generations.
+        winner = p.run(eval_genomes, 2)
 
         # save best genome
         with open('./agent_code/genetic_agent/winner.pkl', 'wb') as output:

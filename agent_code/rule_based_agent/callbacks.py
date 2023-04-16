@@ -207,4 +207,10 @@ def act(self, game_state):
             if a == 'BOMB':
                 self.bomb_history.append((x, y))
 
-            return a
+            # generate a random number between 0 and 1 using numpy
+            action_score = np.random.rand()
+            return a, action_score
+
+    # If no valid action could be found, wait
+    action_score = np.random.rand()
+    return "WAIT", action_score

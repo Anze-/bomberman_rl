@@ -273,9 +273,6 @@ class GenericWorld:
         # Remove hit agents
         for a in agents_hit:
             a.dead = True
-            if "genetic_agent" in a.name and a.train_genetic:
-                a.genome.fitness -= 50
-
             self.active_agents.remove(a)
             a.add_event(e.GOT_KILLED)
             for aa in self.active_agents:
@@ -443,6 +440,7 @@ class BombeRLeWorld(GenericWorld):
             if a.available_think_time > 0:
                 state["agent_net"] = a.genetic_agent_net
                 state["agent_bombs_left"] = a.bombs_left
+                state['agent_weights'] = a.weights
                 a.act(state)
 
         # Give agents time to decide

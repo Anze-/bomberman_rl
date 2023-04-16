@@ -14,6 +14,8 @@ import events as e
 import settings as s
 from fallbacks import pygame
 
+import numpy as np
+
 AGENT_API = {
     "callbacks": {
         "setup": ["self"],
@@ -97,7 +99,6 @@ class Agent:
         self.events = None
         self.available_think_time = None
 
-
         self.bombs_left = None
 
         self.last_game_state = None
@@ -105,8 +106,8 @@ class Agent:
 
         self.genetic_agent_net = None
         self.genome = None
-
-        self.history = []
+        # initial random weights of length - approximation 1 => length of the array 3
+        self.weights = np.random.uniform(0, 1, 3)
 
         self.setup()
 
@@ -119,13 +120,13 @@ class Agent:
             self.backend.get("setup_training")
 
     # add actions to history and return true if there is the same action for 20 times
-    def add_action(self, action):
-        self.history.append(action)
-        if len(self.history) > 50:
-            self.history.pop(0)
-        if len(set(self.history)) == 1:
-            return True
-        return False
+    #def add_action(self, action):
+    #    self.history.append(action)
+    #    if len(self.history) > 50:
+    #        self.history.pop(0)
+    #    if len(set(self.history)) == 1:
+    #        return True
+    #   return False
 
     def __str__(self):
         return f"Agent {self.name} under control of {self.code_name}"

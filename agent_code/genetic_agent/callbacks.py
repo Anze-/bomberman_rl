@@ -1,5 +1,4 @@
 from collections import deque
-import math
 import numpy as np
 import sys
 sys.path.append("agent_code")
@@ -34,22 +33,6 @@ def reset_self(self):
     self.ignore_others_timer = 0
 
 
-def from_action_to_id(action, agent):
-    if action == "RIGHT":
-        return 0
-    if action == "LEFT":
-        return 1
-    if action == "UP":
-        return 1
-    if action == "DOWN":
-        return 3
-    if action == "BOMB":
-        return 4
-    if action == "WAIT":
-        return 5
-    else:
-        print(f"ERROR: action {action} not found from agent {agent}")
-        return 6
 def act(self, game_state):
     """
     Called each game step to determine the agent's next action.
@@ -64,24 +47,34 @@ def act(self, game_state):
         reset_self(self)
         self.current_round = game_state["round"]
 
-    wb_action = wall_breaker_agent.act(self, game_state)
-    coin_collector_action = coin_collector_agent.act(self, game_state)
-    rule_based_action = rule_based_agent.act(self, game_state)
+    # pick agent weights
+    weights = game_state['agent_weights']
 
-    survival_action_number = from_action_to_id(wb_action, "wb_agent")
-    coin_collector_action_number = from_action_to_id(coin_collector_action, "coin_collector_agent")
-    rule_based_action_number = from_action_to_id(rule_based_action, "rule_based_agent")
+    # get action and score from each agent set action = wait if the first argument is None
+    if game_state is None:
+        print("game state", game_state)
+    if self is None:
+        print("self", self)
 
-    net = game_state['agent_net']
-    if net is not None:
-        output = np.argmax(net.activate((survival_action_number, coin_collector_action_number, rule_based_action_number)))
-        # remember to check if the action is None
-        if output == 0:
-            return wb_action
-        if output == 1:
-            return coin_collector_action
-        if output == 2:
-            return rule_based_action
+    wb_action, wb_score = wall_breaker_agent.act(self, game_state)
+    coin_collector_action, coin_collector_score = coin_collector_agent.act(self, game_state)
+    rule_based_action, rule_based_score = rule_based_agent.act(self, game_state)
+    if wb_action is None:
+        wb_action = "WAIT"
+    if coin_collector_action is None:
+        coin_collector_action = "WAIT"
+    if rule_based_action is None:
+        rule_based_action = "WAIT"
 
-    print("ERRORE, RITORNO AZIONE RANDOM")
-    return np.random.choice(['RIGHT', 'LEFT', 'UP', 'DOWN', 'BOMB'], p=[.23, .23, .23, .23, .08])
+
+    # multiply elementwise the weights and the scores
+    weighted_scores = np.multiply(weights, [wb_score, coin_collector_score, rule_based_score])
+    # get the index of the max score
+    output = np.argmax(weighted_scores)
+    # return the action associated with the max score
+    if output == 0:
+        return wb_action
+    if output == 1:
+        return coin_collector_action
+    if output == 2:
+        return rule_based_action
