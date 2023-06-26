@@ -2,7 +2,7 @@ import json
 import logging
 import pickle
 import subprocess
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from datetime import datetime
 from pathlib import Path
 from threading import Event
@@ -392,7 +392,26 @@ class BombeRLeWorld(GenericWorld):
             agent.x, agent.y = start_position
 
         return arena, coins, active_agents
-
+    
+    def gen_dead_zone_fun(self):
+        # map arena coordinates to list of events, empty by default.
+        # each event is a time interval during which the coord is deadly
+        d = defaultdict(list)
+        
+        for exp in self.explosions:
+            if exp.is_dangerous():
+                for (x, y) in exp.blast_coords:
+                    event = (0, exp.timer) # (x, y) is dangerous from t=0 and safe by t=exp.timer
+                    d[(x, y)].append(event)
+        
+        for bomb in self.bombs:
+            blast_coords = bomb.get_blast_coords(self.arena)
+            for (x, y) in blast_coords:
+                d[(x, y)].append((bomb.timer+1, bomb.timer+1 + s.EXPLOSION_TIMER))
+            
+        # returns a function (coord, t): True iff coord is deadly at time t
+        return (lambda coord, t: any(map(lambda e: (t >= e[0]) and (t < e[1]), d[coord])))
+        
     def get_state_for_agent(self, agent: Agent):
         if agent.dead:
             return None
@@ -413,7 +432,9 @@ class BombeRLeWorld(GenericWorld):
             if exp.is_dangerous():
                 for (x, y) in exp.blast_coords:
                     explosion_map[x, y] = max(explosion_map[x, y], exp.timer - 1)
-        state['explosion_map'] = explosion_map
+                    
+        state['explosion_map'] = explosion_map        
+        state['dead_zones'] = self.gen_dead_zone_fun()
 
         return state
 
