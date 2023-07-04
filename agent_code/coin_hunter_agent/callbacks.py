@@ -1,5 +1,5 @@
 from agent_code.coin_hunter_agent.movement import *
-from agent_code.coin_hunter_agent.hunt import Hunter
+from agent_code.coin_hunter_agent.hunt import Hunt, Hunter
 
 from typing import Optional
 
@@ -19,7 +19,7 @@ def find_dir_to_closest(game_state: dict, start_pos: Coord) -> Optional[Dir]:
     if not game_state['coins']:
         return None
     
-    # perform a simple breadth-first search on the graph of currently viable+safe positions
+    # perform a simple breadth-first search on the graph of currently viable+safe paths
     
     frontier = deque([start_pos])
     parent_of = {start_pos: start_pos} # represents the search tree + keeps track of already visited positions
@@ -56,47 +56,33 @@ def find_dir_to_closest(game_state: dict, start_pos: Coord) -> Optional[Dir]:
 
 # given a weight w>0, returns a reward function for the collection of coins,
 # mapping coin distance along path -> coin value
-def hunter_reward_fun(w : int):
+def coin_reward_fun(w : int):
     return lambda s: math.exp((-s**2) * w)
 
 
 def act(self, game_state: dict) -> str:
-    curr_pos = Coord(x=game_state['self'][3][0], y=game_state['self'][3][1])
+    # no coin to collect: stay still
+    if not game_state['coins']:
+        return 'WAIT'
     
-    # perform a local beam search on the graph of positions with k=infty but limited number of steps,
-    # exploiting the class Hunter as a representation of each state
-    # and as the generator of every new successor state
+    # initiate a hunt for coins starting from the current position of the agent
     BEAM_SEARCH_ITERS = 5
+    curr_pos = Coord(x=game_state['self'][3][0], y=game_state['self'][3][1])
+    hunt = Hunt(game_state, curr_pos, coin_reward_fun(0.02))
+    hunter_pool = hunt.run(BEAM_SEARCH_ITERS)
     
-    # initialize the pool of hunters with the initial state of the local search
-    hunters = [
-        Hunter(game_state, # the state of the game is the current
-               game_state['coins'], # all coins currently in the field have not been collected yet
-               curr_pos, # the position of the hunter is the current position of the agent
-               hunter_reward_fun(0.02)
-              )
-    ]
-
-    for _ in range(BEAM_SEARCH_ITERS):
-        new_hunters = []
-        
-        # update the pool of hunter with all the successors of the current hunters in the pool
-        for h in hunters:
-            new_local_hunters = h.scatter()
-            new_hunters.extend(new_local_hunters)
-            
-            # if a hunter has not generated successors, keep it in the pool
-            if not new_local_hunters:
-                new_hunters.append(h)
-        
-        hunters = new_hunters
-    
-    # find the hunter who scored the best utility
-    best_hunter = hunters[0]
-    for h in hunters:
+    # find the hunter who scored the best utility, and get the first direction of its path
+    best_hunter = hunter_pool[0]
+    for h in hunter_pool:
         if h.utility > best_hunter.utility:
             best_hunter = h
+    best_dir = best_hunter.first_dir
     
+    # if the best hunter reached some coins, resort to BFS over the entire field
     if best_hunter.utility == 0:
+        best_dir = find_dir_to_closest(game_state, curr_pos)
+    
+    # if not even BFS found a path to the coins, it means they are currently unreachable
+    if not best_dir:
         return 'WAIT'
-    return best_hunter.first_dir.name
+    return best_dir.name

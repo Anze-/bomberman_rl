@@ -71,3 +71,49 @@ class Hunter:
             new_hunters.append(h)
         
         return new_hunters
+    
+    
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# performs a local beam search on the graph of currently viable+safe paths
+# with k=infty but limited number of steps,
+# exploiting the class Hunter as a representation of each state
+# and as the generator of every new successor state
+class Hunt:
+    
+    def __init__(self,
+                 game_state: dict,
+                 initial_pos: Coord,
+                 reward_fun: Callable[[int], float]
+                ):
+    
+        self.game_state = game_state
+        self.initial_pos = initial_pos
+        self.reward_fun = reward_fun
+    
+    
+    def run(self, n_iters: int) -> list[Hunter]:
+        
+        hunters = [
+            Hunter(self.game_state, # the state of the game is the current
+                   self.game_state['coins'], # all coins currently in the field have not been collected yet
+                   self.initial_pos, # the position of the hunter is the current position of the agent
+                   self.reward_fun
+                  )
+        ]
+
+        for _ in range(n_iters):
+            new_hunters = []
+            
+            # update the pool of hunter with all the successors of the current hunters in the pool
+            for h in hunters:
+                new_local_hunters = h.scatter()
+                new_hunters.extend(new_local_hunters)
+                
+                # if a hunter has not generated successors, keep it in the pool
+                if not new_local_hunters:
+                    new_hunters.append(h)
+            
+            hunters = new_hunters
+            
+        return hunters
