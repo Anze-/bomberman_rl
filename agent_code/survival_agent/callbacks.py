@@ -57,6 +57,62 @@ def isValid(grid,node):
     if(grid[node[1],node[0]]==0):return False
     else: return True
 
+def heuristic(a, b): # Manhattan distance
+    (x1, y1) = a
+    (x2, y2) = b
+    return abs(x1 - x2) + abs(y1 - y2)
+
+def neighbors(node, grid):
+    neigh=[]
+    (x,y)=node
+    for i in [-1, 1]:
+        node1= (x+i,y)
+        node2= (x,y+i)
+        if isValid(grid,node1): neigh.append(node1)
+        if isValid(grid,node2): neigh.append(node2)
+    return neigh
+
+def reconstruct_path(came_from, start, goal):
+    current= goal
+    path= []
+    if goal not in came_from: # no path was found
+        return []
+    while current != start:
+        path.append(current)
+        current = came_from[current]
+    #path.append(start) # optional
+    path.reverse() # optional
+    return path
+
+def a_star_search(grid, start, goal, self):
+    frontier = PriorityQueue()
+    frontier.put(start, 0)
+    came_from= {}
+    cost_so_far= {}
+    came_from[start] = None
+    cost_so_far[start] = 0
+    
+    while not frontier.empty():
+        current= frontier.get()
+        if current == goal:
+            break
+        neigh=neighbors(current, grid)
+        for next in neigh:
+            new_cost = cost_so_far[current] + 1
+            if next not in cost_so_far or new_cost < cost_so_far[next]:
+                cost_so_far[next] = new_cost
+                h=heuristic(next, goal)
+                priority = new_cost + h
+                frontier.put(next, priority)
+                came_from[next] = current
+    return came_from, cost_so_far
+
+def print_path_cost(path,grid):
+    costs=[]
+    for node in path:
+        (x,y)=node
+        costs.append(grid[y,x])        
+    return costs
 
 def act(self, game_state):
     """
@@ -153,4 +209,60 @@ def act(self, game_state):
             self.logger.debug(f'Agent location ({(x,y)}) in bomb range, PUT 0 ') 
             state_value_matrix[y,x]=0
 
-   
+    # return best_action
+    
+    # Choose direction as min path to safer cell with a star
+    
+    goals = np.where(state_value_matrix == np.amax(state_value_matrix))
+    listOfGoals = list(zip(goals[0], goals[1]))
+    dis=50
+    #Take the goal nearest to the agent
+    for goal in listOfGoals:
+        tempdis=heuristic((goal[1],goal[0]), (x,y))
+        if (dis>tempdis):
+            dis=tempdis
+            true_goal=goal
+    (x_goal,y_goal)=true_goal
+    true_goal=(y_goal,x_goal)
+    self.logger.debug(f'GOAL ({true_goal})') 
+    came_from, cost_so_far=a_star_search(state_value_matrix, start=(x,y), goal=(true_goal), self=self)
+
+    path=reconstruct_path(came_from, start=(x,y), goal=true_goal)
+    
+    if not path: #choose greedy action
+
+        max_cell=(y,x)
+        max=state_value_matrix[y,x]
+        best_action='WAIT'
+        self.logger.debug(f'Start from Agent cell ({(y,x)}) with value {state_value_matrix[y,x]}')
+        if state_value_matrix[y+1,x]>max:
+            max=state_value_matrix[y+1,x]
+            max_cell=(y+1,x)
+            best_action='DOWN' 
+        if state_value_matrix[y-1,x]>max:
+            max=state_value_matrix[y-1,x]
+            max_cell=(y-1,x)
+            best_action='UP'
+        if state_value_matrix[y,x+1]>max:
+            max=state_value_matrix[y,x+1]
+            max_cell=(y,x+1)
+            best_action='RIGHT'
+        if state_value_matrix[y,x-1]>max:
+            max=state_value_matrix[y,x-1]
+            max_cell=(y,x-1)
+            best_action='LEFT'
+        self.logger.debug(f'Path: {path}') 
+        self.logger.debug(f'Agent cell ({(x,y)}) with value {state_value_matrix[y,x]}, max cell ({max_cell}) with value {max}')
+        self.logger.debug(f'Best_action cause no path: {best_action}') 
+    else:
+        if(path[0]==(x+1,y)):best_action= 'RIGHT'
+        if(path[0]==(x-1,y)):best_action= 'LEFT'
+        if(path[0]==(x,y+1)):best_action= 'DOWN'
+        if(path[0]==(x,y-1)):best_action= 'UP'
+        self.logger.debug(f'Best_action: {best_action}') 
+    self.logger.debug(f'Final State Value Function with value {state_value_matrix}')
+    return best_action
+    
+
+#Score function: Max value obtained by a cell: 32
+#We need to associate a score to move: The score should depend on how much the agent is in a risky position (low value of state_matrix) and how much the move will improve(?)
