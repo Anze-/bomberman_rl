@@ -1,11 +1,12 @@
 from agent_code.coin_hunter_agent.movement import *
 
 from typing import Callable, MutableSet, Optional
+import numpy as np
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# A hunter represents the state of a local search performed in the graph of currently viable+safe positions
+# a hunter represents the state of a local search performed in the graph of currently viable+safe positions
 #   - it cannot loop back to previously visited positions, unless a new coin have been collected
 #   - it keeps track of the utility of its traveled path, defined as the sum of values
 #     attributed to each collected coin by a given reward function, which operates wrt
@@ -75,8 +76,7 @@ class Hunter:
     
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# performs a local beam search on the graph of currently viable+safe paths
-# with k=infty but limited number of steps,
+# a hunt represents a stochastic local beam search on the graph of currently viable+safe paths,
 # exploiting the class Hunter as a representation of each state
 # and as the generator of every new successor state
 class Hunt:
@@ -84,36 +84,48 @@ class Hunt:
     def __init__(self,
                  game_state: dict,
                  initial_pos: Coord,
-                 reward_fun: Callable[[int], float]
+                 reward_fun: Callable[[int], float],
+                 max_hunters: int # k parameter of stochastic local beam search
                 ):
-    
-        self.game_state = game_state
-        self.initial_pos = initial_pos
-        self.reward_fun = reward_fun
-    
-    
-    def run(self, n_iters: int) -> list[Hunter]:
         
-        hunters = [
-            Hunter(self.game_state, # the state of the game is the current
-                   self.game_state['coins'], # all coins currently in the field have not been collected yet
-                   self.initial_pos, # the position of the hunter is the current position of the agent
-                   self.reward_fun
+        # initialize pool of hunters with initial state of local search
+        self.hunters = [
+            Hunter(game_state, # the state of the game is the current
+                   game_state['coins'], # all coins currently in the field have not been collected yet
+                   initial_pos, # the position of the hunter is the current position of the agent
+                   reward_fun
                   )
         ]
-
+        
+        self.max_hunters = max_hunters
+    
+    
+    def run(self, n_iters: int):
         for _ in range(n_iters):
             new_hunters = []
+            stuck_hunters = 0
             
-            # update the pool of hunter with all the successors of the current hunters in the pool
-            for h in hunters:
+            # generate a new pool with all successors of the current pool of hunters
+            # note: "stuck" hunters (having no successors) will be kept in the pool
+            for h in self.hunters:
                 new_local_hunters = h.scatter()
                 new_hunters.extend(new_local_hunters)
                 
-                # if a hunter has not generated successors, keep it in the pool
                 if not new_local_hunters:
                     new_hunters.append(h)
+                    stuck_hunters += 1
             
-            hunters = new_hunters
+            # if all hunters are stuck, halt the search
+            if stuck_hunters == len(self.hunters):
+                break
             
-        return hunters
+            # restrict the new pool to the maximum number of hunters
+            # by performing a weighted sampling wrt the utility scored by each new hunter
+            new_utilities = np.array([h.utility for h in new_hunters])
+            new_utilities = np.exp(new_utilities)
+            new_utilities = new_utilities / new_utilities.sum()
+            selection = np.random.choice(np.arange(len(new_hunters)),
+                                        size=min(self.max_hunters, len(new_hunters)),
+                                        p=new_utilities,
+                                        replace=False)
+            self.hunters = [new_hunters[i] for i in selection]

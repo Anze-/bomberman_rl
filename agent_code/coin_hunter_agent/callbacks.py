@@ -66,14 +66,15 @@ def act(self, game_state: dict) -> str:
         return 'WAIT'
     
     # initiate a hunt for coins starting from the current position of the agent
-    BEAM_SEARCH_ITERS = 5
+    BEAM_SEARCH_ITERS = 10
+    BEAM_SEARCH_K = 8
     curr_pos = Coord(x=game_state['self'][3][0], y=game_state['self'][3][1])
-    hunt = Hunt(game_state, curr_pos, coin_reward_fun(0.02))
-    hunter_pool = hunt.run(BEAM_SEARCH_ITERS)
+    hunt = Hunt(game_state, curr_pos, coin_reward_fun(0.02), BEAM_SEARCH_K)
+    hunt.run(BEAM_SEARCH_ITERS)
     
     # find the hunter who scored the best utility, and get the first direction of its path
-    best_hunter = hunter_pool[0]
-    for h in hunter_pool:
+    best_hunter = hunt.hunters[0]
+    for h in hunt.hunters:
         if h.utility > best_hunter.utility:
             best_hunter = h
     best_dir = best_hunter.first_dir
