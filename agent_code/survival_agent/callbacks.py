@@ -2,7 +2,7 @@ from collections import deque
 from random import shuffle
 from queue import PriorityQueue
 import numpy as np
-
+from items import Coin, Explosion, Bomb
 import settings as s
 
 def setup(self):
@@ -30,12 +30,34 @@ def reset_self(self):
     # While this timer is positive, agent will not hunt/attack opponents
     self.ignore_others_timer = 0
 
+def get_blast_coords(x,y, power, arena):
+        blast_coords = [(x, y)]
+
+        for i in range(1, power + 1):
+            if arena[x + i, y] == -1:
+                break
+            blast_coords.append((x + i, y))
+        for i in range(1, power + 1):
+            if arena[x - i, y] == -1:
+                break
+            blast_coords.append((x - i, y))
+        for i in range(1, power + 1):
+            if arena[x, y + i] == -1:
+                break
+            blast_coords.append((x, y + i))
+        for i in range(1, power + 1):
+            if arena[x, y - i] == -1:
+                break
+            blast_coords.append((x, y - i))
+
+        return blast_coords
+
 def isValid(grid,node):
     if(node[0]<0 or node[1]<0 or node[0]>=grid.shape[0] or node[1]>=grid.shape[0]): return False
     if(grid[node[1],node[0]]==0):return False
     else: return True
 
-def heuristic(a, b):
+def heuristic(a, b): # Manhattan distance
     (x1, y1) = a
     (x2, y2) = b
     return abs(x1 - x2) + abs(y1 - y2)
@@ -72,21 +94,16 @@ def a_star_search(grid, start, goal, self):
     
     while not frontier.empty():
         current= frontier.get()
-        #Non funziona qualcosa
         if current == goal:
             break
         neigh=neighbors(current, grid)
-        self.logger.debug(f'Neighbours of {current}: {neigh}') 
         for next in neigh:
-            new_cost = cost_so_far[current] + 1#grid[y_node,x_node]
+            new_cost = cost_so_far[current] + 1
             if next not in cost_so_far or new_cost < cost_so_far[next]:
                 cost_so_far[next] = new_cost
-                self.logger.debug(f'cost until {next} {cost_so_far[next]}') 
                 h=heuristic(next, goal)
                 priority = new_cost + h
-                self.logger.debug(f'heuristic of {next}--{goal}: h{h}') 
                 frontier.put(next, priority)
-                self.logger.debug(f'priority of {next} {priority}')
                 came_from[next] = current
     return came_from, cost_so_far
 
@@ -123,34 +140,10 @@ def act(self, game_state):
         for (i, j) in [(xb + h, yb) for h in range(-3, 4)] + [(xb, yb + h) for h in range(-3, 4)]:
             if (0 < i < bomb_map.shape[0]) and (0 < j < bomb_map.shape[1]):
                 bomb_map[i, j] = min(bomb_map[i, j], t)
+    self.logger.debug(f'Bombs array: {bombs}')
 
-    #Da tenere??
-    # If agent has been in the same location three times recently, it's a loop
-    if self.coordinate_history.count((x, y)) > 2:
-        self.ignore_others_timer = 5
-    else:
-        self.ignore_others_timer -= 1
-    self.coordinate_history.append((x, y))
-
-    # Check which moves make sense at all (????)
-    directions = [(x, y), (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
-    valid_tiles, valid_actions = [], []
-    for d in directions:
-        if ((arena[d] == 0) and
-                (game_state['explosion_map'][d] < 1) and
-                (bomb_map[d] > 0) and
-                (not d in others) and
-                (not d in bomb_xys)):
-            valid_tiles.append(d)
-    if (x - 1, y) in valid_tiles: valid_actions.append('LEFT')
-    if (x + 1, y) in valid_tiles: valid_actions.append('RIGHT')
-    if (x, y - 1) in valid_tiles: valid_actions.append('UP')
-    if (x, y + 1) in valid_tiles: valid_actions.append('DOWN')
-    if (x, y) in valid_tiles: valid_actions.append('WAIT')
-    # Disallow the BOMB action if agent dropped a bomb in the same spot recently
-    if (bombs_left > 0) and (x, y) not in self.bomb_history: valid_actions.append('BOMB')
-    self.logger.debug(f'Valid actions: {valid_actions}')
-
+    
+    
     # Collect basic action proposals in a queue
     # Later on, the last added action that is also valid will be chosen
     action_ideas = ['UP', 'DOWN', 'LEFT', 'RIGHT']
@@ -160,20 +153,17 @@ def act(self, game_state):
     #Detect enemies
     enemies=others
     arena_dim=arena.shape[0]
-    free_space = arena == 0
-
     state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * np.inf)
-    #fill manhattan distance matrix from enemies
-    
+
+    #fill manhattan distance matrix from enemies (0 where enemies are located)
     for o in others:
-        temp_value_matrix=np.zeros((arena.shape[0], arena.shape[0]))
+        temp_value_matrix=np.zeros((arena_dim, arena_dim))
         for i in range(0, arena.shape[0]):
             for j in range(0, arena.shape[0]):
                 temp_value_matrix[i,j]=temp_value_matrix[i,j]+ abs(i - o[1]) + abs(j - o[0])
         state_value_matrix=np.minimum(state_value_matrix,temp_value_matrix)
-    #put 0 where we have walls and crafts (non legal position)
-    free_matrix=np.absolute(np.absolute(arena)-np.ones(arena.shape[0])) 
-    state_value_matrix=np.multiply(state_value_matrix, free_matrix)
+    
+    self.logger.debug(f'Fill with manhattan from enemies distance matrix: \n{state_value_matrix}')
     #add 1 for each legal movement executable from cell i,j
     for i in range(0, arena.shape[0]-1):
             for j in range(0, arena.shape[0]-1):
@@ -184,48 +174,44 @@ def act(self, game_state):
                     if(state_value_matrix[i,j-1]!=0): leg_move+=1
                     if(state_value_matrix[i,j+1]!=0): leg_move+=1
                 state_value_matrix[i,j]+=leg_move
-    #put 1 in bomb range and 0 in bomb location
+    self.logger.debug(f'Add 1 to cell for each possible action: \n{state_value_matrix}')
+    #put 0 where we have walls and crafts (non legal position)
+    free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
+    state_value_matrix=np.multiply(state_value_matrix, free_matrix)
+
+    
+    
+    #put 0 in bomb range if distance from agent to explosion cell is equal
+    f_deadzone=game_state['dead_zones']
+    for i in range(0, arena.shape[0]-1):
+        for j in range(0, arena.shape[0]-1):
+            dis=abs(j- x) + abs(i - y)
+            deadzone=f_deadzone((j, i), dis)
+            if deadzone:
+                self.logger.debug(f'Agent location ({(x,y)}), cell location({j,i}) distance {dis}, deadzone {deadzone}, PUT 0') 
+                state_value_matrix[i,j]=0
+
+    #put 0 in bomb place if close to agent
     for (xb, yb), t in bombs:
-        state_value_matrix[yb,xb]=0
-        for i in range(1,4):
-            #Possiamo usare isValid
-            if isValid(state_value_matrix,(xb-i,yb)):
-                state_value_matrix[yb,xb-i]=0
-            if isValid(state_value_matrix,(xb+i,yb)):
-                state_value_matrix[yb,xb+i]=0
-            if isValid(state_value_matrix,(xb,yb-i)):
-                state_value_matrix[yb-i,xb]=0
-            if isValid(state_value_matrix,node=(xb,yb+i)):
-                state_value_matrix[yb+i,xb]=0
+        dis=abs(yb- y) + abs(xb - x)
+        if dis<=4:
+            self.logger.debug(f'Agent location ({(x,y)}), bomb location ({(xb,yb)}) distance {dis} <= {t}, PUT 0 ') 
+            state_value_matrix[yb,xb]=0
     
-
-    # Choose direction with greedy (?)
-    best_value=state_value_matrix[y,x]
-    x_max, y_max=x,y
-    best_action='WAIT'
-    if(state_value_matrix[y,x+1]>best_value):
-        x_max, y_max=x+1,y
-        best_value=state_value_matrix[y,x+1]
-        best_action='RIGHT'
-    if(state_value_matrix[y,x-1]>best_value):
-        x_max, y_max=x-1,y
-        best_value=state_value_matrix[y,x-1]
-        best_action='LEFT'
-    if(state_value_matrix[y-1,x]>best_value):
-        x_max, y_max=x,y-1
-        best_value=state_value_matrix[y-1,x]
-        best_action='DOWN'
-    if(state_value_matrix[y+1,x]>best_value):
-        x_max, y_max=x,y+1
-        best_value=state_value_matrix[y+1,x]
-        best_action='UP'
-    self.logger.debug(f'State_matrix: \n{state_value_matrix}')   
+    self.logger.debug(f'Put 0 in bomb place and in cells where path will encounter an explosion: \n{state_value_matrix}')   
     self.logger.debug(f'Agent location ({(x,y)})with value {state_value_matrix[y,x]}') 
-    
-    #self.logger.debug(f'Best_action: \n{best_action}')   
-    # return best_action
 
-    # Choose direction as min path to safer cell with a star(?)
+    #put 0 in agent location if is in range of a bomb
+    for (xb, yb), t in bombs:
+        blast=get_blast_coords(xb, yb, 3, arena)
+        self.logger.debug(f'Bomb  ({bombs}), range {blast} ') 
+        if (x,y) in blast:
+            self.logger.debug(f'Agent location ({(x,y)}) in bomb range, PUT 0 ') 
+            state_value_matrix[y,x]=0
+
+    # return best_action
+    
+    # Choose direction as min path to safer cell with a star
     
     goals = np.where(state_value_matrix == np.amax(state_value_matrix))
     listOfGoals = list(zip(goals[0], goals[1]))
@@ -242,22 +228,41 @@ def act(self, game_state):
     came_from, cost_so_far=a_star_search(state_value_matrix, start=(x,y), goal=(true_goal), self=self)
 
     path=reconstruct_path(came_from, start=(x,y), goal=true_goal)
-     
-    self.logger.debug(f'best path to ({true_goal}): \n{path}') 
-    self.logger.debug(f'path cost: \n{print_path_cost(path,state_value_matrix)}') 
-    if (state_value_matrix[y,x]==0 and not path):
-        while len(action_ideas) > 0:
-            a = action_ideas.pop()
-            if a in valid_actions:
-                # Keep track of chosen action for cycle detection
-                if a != 'BOMB':
-                    self.logger.debug(f'ON a BOMB! Random action: {a}') 
-                    return a
-    if not path: best_action='WAIT'
+    
+    if not path: #choose greedy action
+
+        max_cell=(y,x)
+        max=state_value_matrix[y,x]
+        best_action='WAIT'
+        self.logger.debug(f'Start from Agent cell ({(y,x)}) with value {state_value_matrix[y,x]}')
+        if state_value_matrix[y+1,x]>max:
+            max=state_value_matrix[y+1,x]
+            max_cell=(y+1,x)
+            best_action='DOWN' 
+        if state_value_matrix[y-1,x]>max:
+            max=state_value_matrix[y-1,x]
+            max_cell=(y-1,x)
+            best_action='UP'
+        if state_value_matrix[y,x+1]>max:
+            max=state_value_matrix[y,x+1]
+            max_cell=(y,x+1)
+            best_action='RIGHT'
+        if state_value_matrix[y,x-1]>max:
+            max=state_value_matrix[y,x-1]
+            max_cell=(y,x-1)
+            best_action='LEFT'
+        self.logger.debug(f'Path: {path}') 
+        self.logger.debug(f'Agent cell ({(x,y)}) with value {state_value_matrix[y,x]}, max cell ({max_cell}) with value {max}')
+        self.logger.debug(f'Best_action cause no path: {best_action}') 
     else:
         if(path[0]==(x+1,y)):best_action= 'RIGHT'
         if(path[0]==(x-1,y)):best_action= 'LEFT'
         if(path[0]==(x,y+1)):best_action= 'DOWN'
         if(path[0]==(x,y-1)):best_action= 'UP'
-    self.logger.debug(f'Best_action: {best_action}') 
+        self.logger.debug(f'Best_action: {best_action}') 
+    self.logger.debug(f'Final State Value Function with value {state_value_matrix}')
     return best_action
+    
+
+#Score function: Max value obtained by a cell: 32
+#We need to associate a score to move: The score should depend on how much the agent is in a risky position (low value of state_matrix) and how much the move will improve(?)
