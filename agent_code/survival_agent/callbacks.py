@@ -262,6 +262,168 @@ def act(self, game_state):
         self.logger.debug(f'Best_action: {best_action}') 
     self.logger.debug(f'Final State Value Function with value {state_value_matrix}')
     return best_action
+
+def behave(self, game_state: dict, params: dict) -> Dict[str, float]:
+    
+    # initialize output scores
+    action_scores = {
+        'UP':    0.0,
+        'DOWN':  0.0,
+        'LEFT':  0.0,
+        'RIGHT': 0.0,
+        'BOMB':  0.0,
+        'WAIT':  0.0,
+    }
+    
+    """
+    Called by the Superagent to get a set of action-score pairs of possible actions.
+    """
+    self.logger.debug(f'~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~') 
+    self.logger.info('Picking action according to rule set')
+    # Check if we are in a different round
+    if game_state["round"] != self.current_round:
+        reset_self(self)
+        self.current_round = game_state["round"]
+    # Gather information about the game state
+    arena = game_state['field']
+    _, score, bombs_left, (x, y) = game_state['self']
+    bombs = game_state['bombs']
+    bomb_xys = [xy for (xy, t) in bombs]
+    others = [xy for (n, s, b, xy) in game_state['others']]
+    coins = game_state['coins']
+    bomb_map = np.ones(arena.shape) * 5
+    for (xb, yb), t in bombs:
+        for (i, j) in [(xb + h, yb) for h in range(-3, 4)] + [(xb, yb + h) for h in range(-3, 4)]:
+            if (0 < i < bomb_map.shape[0]) and (0 < j < bomb_map.shape[1]):
+                bomb_map[i, j] = min(bomb_map[i, j], t)
+    self.logger.debug(f'Bombs array: {bombs}')
+
+    
+    
+    # Collect basic action proposals in a queue
+    # Later on, the last added action that is also valid will be chosen
+    action_ideas = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+    shuffle(action_ideas)
+
+    #Survival agent
+    #Detect enemies
+    enemies=others
+    arena_dim=arena.shape[0]
+    state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * np.inf)
+
+    #fill manhattan distance matrix from enemies (0 where enemies are located)
+    for o in others:
+        temp_value_matrix=np.zeros((arena_dim, arena_dim))
+        for i in range(0, arena.shape[0]):
+            for j in range(0, arena.shape[0]):
+                temp_value_matrix[i,j]=temp_value_matrix[i,j]+ abs(i - o[1]) + abs(j - o[0])
+        state_value_matrix=np.minimum(state_value_matrix,temp_value_matrix)
+    
+    self.logger.debug(f'Fill with manhattan from enemies distance matrix: \n{state_value_matrix}')
+    #add 1 for each legal movement executable from cell i,j
+    for i in range(0, arena.shape[0]-1):
+            for j in range(0, arena.shape[0]-1):
+                leg_move=0
+                if(state_value_matrix[i,j]!=0):
+                    if(state_value_matrix[i-1,j]!=0): leg_move+=1
+                    if(state_value_matrix[i+1,j]!=0): leg_move+=1
+                    if(state_value_matrix[i,j-1]!=0): leg_move+=1
+                    if(state_value_matrix[i,j+1]!=0): leg_move+=1
+                state_value_matrix[i,j]+=leg_move
+    self.logger.debug(f'Add 1 to cell for each possible action: \n{state_value_matrix}')
+    #put 0 where we have walls and crafts (non legal position)
+    free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
+    state_value_matrix=np.multiply(state_value_matrix, free_matrix)
+
+    
+    
+    #put 0 in bomb range if distance from agent to explosion cell is equal
+    f_deadzone=game_state['dead_zones']
+    for i in range(0, arena.shape[0]-1):
+        for j in range(0, arena.shape[0]-1):
+            dis=abs(j- x) + abs(i - y)
+            deadzone=f_deadzone((j, i), dis)
+            if deadzone:
+                self.logger.debug(f'Agent location ({(x,y)}), cell location({j,i}) distance {dis}, deadzone {deadzone}, PUT 0') 
+                state_value_matrix[i,j]=0
+
+    #put 0 in bomb place if close to agent
+    for (xb, yb), t in bombs:
+        dis=abs(yb- y) + abs(xb - x)
+        if dis<=4:
+            self.logger.debug(f'Agent location ({(x,y)}), bomb location ({(xb,yb)}) distance {dis} <= {t}, PUT 0 ') 
+            state_value_matrix[yb,xb]=0
+    
+    self.logger.debug(f'Put 0 in bomb place and in cells where path will encounter an explosion: \n{state_value_matrix}')   
+    self.logger.debug(f'Agent location ({(x,y)})with value {state_value_matrix[y,x]}') 
+
+    #put 0 in agent location if is in range of a bomb
+    for (xb, yb), t in bombs:
+        blast=get_blast_coords(xb, yb, 3, arena)
+        self.logger.debug(f'Bomb  ({bombs}), range {blast} ') 
+        if (x,y) in blast:
+            self.logger.debug(f'Agent location ({(x,y)}) in bomb range, PUT 0 ') 
+            state_value_matrix[y,x]=0
+
+    # return best_action
+    
+    # Choose direction as min path to safer cell with a star
+    
+    goals = np.where(state_value_matrix == np.amax(state_value_matrix))
+    listOfGoals = list(zip(goals[0], goals[1]))
+    dis=50
+    #Take the goal nearest to the agent
+    for goal in listOfGoals:
+        tempdis=heuristic((goal[1],goal[0]), (x,y))
+        if (dis>tempdis):
+            dis=tempdis
+            true_goal=goal
+    (x_goal,y_goal)=true_goal
+    true_goal=(y_goal,x_goal)
+    came_from, cost_so_far=a_star_search(state_value_matrix, start=(x,y), goal=(true_goal), self=self)
+
+    path=reconstruct_path(came_from, start=(x,y), goal=true_goal)
+    
+    if not path: #choose greedy action
+
+        max_cell=(y,x)
+        max=state_value_matrix[y,x]
+        best_action='WAIT'
+        self.logger.debug(f'Start from Agent cell ({(y,x)}) with value {state_value_matrix[y,x]}')
+        if state_value_matrix[y+1,x]>max:
+            max=state_value_matrix[y+1,x]
+            max_cell=(y+1,x)
+            best_action='DOWN' 
+        if state_value_matrix[y-1,x]>max:
+            max=state_value_matrix[y-1,x]
+            max_cell=(y-1,x)
+            best_action='UP'
+        if state_value_matrix[y,x+1]>max:
+            max=state_value_matrix[y,x+1]
+            max_cell=(y,x+1)
+            best_action='RIGHT'
+        if state_value_matrix[y,x-1]>max:
+            max=state_value_matrix[y,x-1]
+            max_cell=(y,x-1)
+            best_action='LEFT'
+    else:
+        if(path[0]==(x+1,y)):best_action= 'RIGHT'
+        if(path[0]==(x-1,y)):best_action= 'LEFT'
+        if(path[0]==(x,y+1)):best_action= 'DOWN'
+        if(path[0]==(x,y-1)):best_action= 'UP'
+        if(path[0]==(x,y)):best_action= 'WAIT'
+    
+    #Update the acton scores
+    #Score will be 1/value of the cell, so the lower the value (cell security) the higher the score
+    if state_value_matrix[y+1,x]!=0: action_scores['DOWN']=1/state_value_matrix[y+1,x]
+    if state_value_matrix[y-1,x]!=0: action_scores['UP']=1/state_value_matrix[y-1,x]
+    if state_value_matrix[y,x+1]!=0: action_scores['RIGHT']=1/state_value_matrix[y,x+1]
+    if state_value_matrix[y,x-1]!=0: action_scores['LEFT']=1/state_value_matrix[y,x-1]
+    if state_value_matrix[y,x]!=0: action_scores['WAIT']=1/state_value_matrix[y,x]
+    #add half of residual score to best action
+    action_scores[best_action]+=0.5*(1-action_scores[best_action])
+    print(action_scores)
+    return action_scores
     
 
 #Score function: Max value obtained by a cell: 32
