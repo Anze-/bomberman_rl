@@ -76,7 +76,6 @@ def coin_reward_fun(w : int):
 # - n_iters: the number of iterations of the stochastic local beam search
 # - max_hunters: the maximum number of states of each iteration
 def behave(game_state: dict, params: dict) -> Dict[str, float]:
-    
     # initialize output scores
     action_scores = {
         Dir.UP.name:    0.0,

@@ -1,6 +1,6 @@
 from collections import deque
 from random import shuffle
-
+import random
 import numpy as np
 
 import settings as s
@@ -236,10 +236,24 @@ def act(self, game_state):
             if a == "BOMB":
                 self.bomb_history.append((x, y))
 
-            # generate a random number between 0 and 1 using numpy
-            action_score = np.random.rand()
-            return a, action_score
+            return a
 
     # If no valid action could be found, wait
-    action_score = np.random.rand()
-    return "WAIT", action_score
+    return "WAIT"
+
+
+def behave():
+    action_scores = {
+        "UP": 0.0,
+        "DOWN": 0.0,
+        "LEFT": 0.0,
+        "Dir.RIGHT.name": 0.0,
+        'BOMB': 0.0,
+        'WAIT': 0.0,
+    }
+
+    # assign a score to each action, score must be a random number between 0 and 1
+    for action in action_scores:
+        action_scores[action] = random.random()
+
+    return action_scores

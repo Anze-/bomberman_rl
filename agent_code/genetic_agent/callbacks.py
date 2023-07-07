@@ -3,9 +3,10 @@ import numpy as np
 import sys
 sys.path.append("agent_code")
 
-import agent_code.coin_collector_agent.callbacks as coin_collector_agent
+import agent_code.coin_hunter_agent.callbacks as coin_hunter_agent
 import agent_code.wall_breaker.callbacks as wall_breaker_agent
 import agent_code.rule_based_agent.callbacks as rule_based_agent
+import agent_code.survival_agent.callbacks as survival_agent
 
 def setup(self):
     """Called once before a set of games to initialize data structures etc.
@@ -56,25 +57,31 @@ def act(self, game_state):
     if self is None:
         print("self", self)
 
-    wb_action, wb_score = wall_breaker_agent.act(self, game_state)
-    coin_collector_action, coin_collector_score = coin_collector_agent.act(self, game_state)
-    rule_based_action, rule_based_score = rule_based_agent.act(self, game_state)
-    if wb_action is None:
-        wb_action = "WAIT"
-    if coin_collector_action is None:
-        coin_collector_action = "WAIT"
-    if rule_based_action is None:
-        rule_based_action = "WAIT"
+    wall_breaker_action_scores = wall_breaker_agent.behave()
+    coin_hunter_params = {
+        "reward_fun_weight": 0.5,  # the weight of the reward function
+        "n_iters": 10,  # the number of iterations of the stochastic local beam search
+        "max_hunters": 5,  # the maximum number of states of each iteration
+    }
+    coin_hunter_action_scores = coin_hunter_agent.behave(game_state, coin_hunter_params)
+    survival_agent_action_scores = survival_agent.behave()
 
+    action_scores = [wall_breaker_action_scores, coin_hunter_action_scores, survival_agent_action_scores]
 
-    # multiply elementwise the weights and the scores
-    weighted_scores = np.multiply(weights, [wb_score, coin_collector_score, rule_based_score])
-    # get the index of the max score
-    output = np.argmax(weighted_scores)
-    # return the action associated with the max score
-    if output == 0:
-        return wb_action
-    if output == 1:
-        return coin_collector_action
-    if output == 2:
-        return rule_based_action
+    # for each agent, multiply each score on the dictionary by the weight
+    for i,  scores in enumerate(action_scores):
+        for key in scores:
+            action_scores[i][key] = action_scores[i][key] * weights[i]
+
+    # get the action with the highest score
+    max_score = 0
+    max_action = None
+
+    for i, scores in enumerate(action_scores):
+        for key in scores:
+            if scores[key] > max_score:
+                max_score = scores[key]
+                max_action = key
+
+    print("action: ", max_action)
+    return max_action

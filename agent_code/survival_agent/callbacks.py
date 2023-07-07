@@ -4,7 +4,7 @@ from queue import PriorityQueue
 import numpy as np
 from items import Coin, Explosion, Bomb
 import settings as s
-
+import random
 def setup(self):
     """Called once before a set of games to initialize data structures etc.
 
@@ -266,3 +266,20 @@ def act(self, game_state):
 
 #Score function: Max value obtained by a cell: 32
 #We need to associate a score to move: The score should depend on how much the agent is in a risky position (low value of state_matrix) and how much the move will improve(?)
+
+
+def behave():
+    action_scores = {
+        "UP":    0.0,
+        "DOWN":  0.0,
+        "LEFT":  0.0,
+        "Dir.RIGHT.name": 0.0,
+        'BOMB':         0.0,
+        'WAIT':         0.0,
+    }
+
+    # assign a score to each action, score must be a random number between 0 and 1
+    for action in action_scores:
+        action_scores[action] = random.random()
+
+    return action_scores
