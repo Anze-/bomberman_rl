@@ -20,8 +20,7 @@ class Hunter:
                  reward_fun: Callable[[int], float], # maps: coin distance along path -> coin value
                  visited: MutableSet[Coord] = set(),
                  steps: int = 0,
-                 utility: float = 0.0,
-                 first_dir: Optional[Dir] = None # the first direction taken along the traveled path
+                 utility: float = 0.0
                 ):
         
         self.game_state = game_state
@@ -31,7 +30,6 @@ class Hunter:
         self.reward_fun = reward_fun
         self.steps = steps
         self.utility = utility
-        self.first_dir = first_dir
         
         if self.pos in self.available_coins:
             # the hunter found a coin in its current position
@@ -54,26 +52,19 @@ class Hunter:
             if next_pos in self.visited:
                 continue
             
-            # the "first_dir" of the new hunter is preserved, except when "self" is the root hunter,
-            # in which case it is assigned to the currently considered direction
-            new_first_dir = self.first_dir
-            if not new_first_dir:
-                new_first_dir= d
-            
             h = Hunter(self.game_state,
                        self.available_coins,
                        next_pos,
                        self.reward_fun,
                        self.visited,
                        self.steps + 1,
-                       self.utility,
-                       new_first_dir
+                       self.utility
                       )
             new_hunters.append(h)
         
         return new_hunters
-    
-    
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # a hunt represents a stochastic local beam search on the graph of currently viable+safe paths,
@@ -85,7 +76,8 @@ class Hunt:
                  game_state: dict,
                  initial_pos: Coord,
                  reward_fun: Callable[[int], float],
-                 max_hunters: int # k parameter of stochastic local beam search
+                 max_hunters: int, # k parameter of stochastic local beam search
+                 visited_pos: Set[Coord] = set()
                 ):
         
         # initialize pool of hunters with initial state of local search
@@ -93,7 +85,8 @@ class Hunt:
             Hunter(game_state, # the state of the game is the current
                    game_state['coins'], # all coins currently in the field have not been collected yet
                    initial_pos, # the position of the hunter is the current position of the agent
-                   reward_fun
+                   reward_fun,
+                   visited_pos.copy()
                   )
         ]
         
@@ -129,3 +122,10 @@ class Hunt:
                                         p=new_utilities,
                                         replace=False)
             self.hunters = [new_hunters[i] for i in selection]
+
+
+    def best_utility(self):
+        best = 0
+        for h in self.hunters:
+            best = max(best, h.utility)
+        return best
