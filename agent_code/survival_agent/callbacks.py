@@ -4,6 +4,7 @@ from queue import PriorityQueue
 import numpy as np
 from items import Coin, Explosion, Bomb
 import settings as s
+from typing import Dict, Optional, Tuple
 
 def setup(self):
     """Called once before a set of games to initialize data structures etc.
@@ -162,8 +163,7 @@ def act(self, game_state):
             for j in range(0, arena.shape[0]):
                 temp_value_matrix[i,j]=temp_value_matrix[i,j]+ abs(i - o[1]) + abs(j - o[0])
         state_value_matrix=np.minimum(state_value_matrix,temp_value_matrix)
-    
-    self.logger.debug(f'Fill with manhattan from enemies distance matrix: \n{state_value_matrix}')
+
     #add 1 for each legal movement executable from cell i,j
     for i in range(0, arena.shape[0]-1):
             for j in range(0, arena.shape[0]-1):
@@ -174,7 +174,6 @@ def act(self, game_state):
                     if(state_value_matrix[i,j-1]!=0): leg_move+=1
                     if(state_value_matrix[i,j+1]!=0): leg_move+=1
                 state_value_matrix[i,j]+=leg_move
-    self.logger.debug(f'Add 1 to cell for each possible action: \n{state_value_matrix}')
     #put 0 where we have walls and crafts (non legal position)
     free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
     state_value_matrix=np.multiply(state_value_matrix, free_matrix)
@@ -188,18 +187,13 @@ def act(self, game_state):
             dis=abs(j- x) + abs(i - y)
             deadzone=f_deadzone((j, i), dis)
             if deadzone:
-                self.logger.debug(f'Agent location ({(x,y)}), cell location({j,i}) distance {dis}, deadzone {deadzone}, PUT 0') 
                 state_value_matrix[i,j]=0
 
     #put 0 in bomb place if close to agent
     for (xb, yb), t in bombs:
         dis=abs(yb- y) + abs(xb - x)
         if dis<=4:
-            self.logger.debug(f'Agent location ({(x,y)}), bomb location ({(xb,yb)}) distance {dis} <= {t}, PUT 0 ') 
             state_value_matrix[yb,xb]=0
-    
-    self.logger.debug(f'Put 0 in bomb place and in cells where path will encounter an explosion: \n{state_value_matrix}')   
-    self.logger.debug(f'Agent location ({(x,y)})with value {state_value_matrix[y,x]}') 
 
     #put 0 in agent location if is in range of a bomb
     for (xb, yb), t in bombs:
@@ -251,8 +245,6 @@ def act(self, game_state):
             max=state_value_matrix[y,x-1]
             max_cell=(y,x-1)
             best_action='LEFT'
-        self.logger.debug(f'Path: {path}') 
-        self.logger.debug(f'Agent cell ({(x,y)}) with value {state_value_matrix[y,x]}, max cell ({max_cell}) with value {max}')
         self.logger.debug(f'Best_action cause no path: {best_action}') 
     else:
         if(path[0]==(x+1,y)):best_action= 'RIGHT'
