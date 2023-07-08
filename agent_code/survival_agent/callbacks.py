@@ -406,17 +406,41 @@ def behave(self, game_state: dict, params: dict) -> Dict[str, float]:
         if(path[0]==(x,y)):best_action= 'WAIT'
     
     #Update the acton scores
-    #Score will be 1/value of the cell, so the lower the value (cell security) the higher the score
-    if state_value_matrix[y+1,x]!=0: action_scores['DOWN']=1/state_value_matrix[y+1,x]
-    if state_value_matrix[y-1,x]!=0: action_scores['UP']=1/state_value_matrix[y-1,x]
-    if state_value_matrix[y,x+1]!=0: action_scores['RIGHT']=1/state_value_matrix[y,x+1]
-    if state_value_matrix[y,x-1]!=0: action_scores['LEFT']=1/state_value_matrix[y,x-1]
-    if state_value_matrix[y,x]!=0: action_scores['WAIT']=1/state_value_matrix[y,x]
+    #Score will be 1/curr_value*increment_value, so the lower the value of current (cell security) the higher the score (need to move to another cell)
+    curr_value=state_value_matrix[y,x]
+    right_value=state_value_matrix[y,x+1]
+    left_value=state_value_matrix[y,x-1]
+    up_value=state_value_matrix[y-1,x]
+    down_value=state_value_matrix[y+1,x]
+
+    #First version with bias towards best action
+    if best_action=='DOWN': action_scores['DOWN']=1/(curr_value+1)*(down_value-curr_value+1)
+    else: action_scores['DOWN']=1/(curr_value+1)*(down_value-curr_value)
+    if best_action=='UP': action_scores['UP']=1/(curr_value+1)*(up_value-curr_value+1)
+    else: action_scores['UP']=1/(curr_value+1)*(up_value-curr_value)
+    if best_action=='RIGHT': action_scores['RIGHT']=1/(curr_value+1)*(right_value-curr_value+1)
+    else: action_scores['RIGHT']=1/(curr_value+1)*(right_value-curr_value)
+    if best_action=='LEFT': action_scores['LEFT']=1/(curr_value+1)*(left_value-curr_value+1)
+    else: action_scores['LEFT']=1/(curr_value+1)*(left_value-curr_value)
+    if best_action=='WAIT': action_scores['WAIT']=1/(curr_value+1)*(curr_value-curr_value+1)
+    else: action_scores['WAIT']=1/(curr_value+1)*(curr_value-curr_value)
+
+    #Second version without bias towards best action
+    action_scores['DOWN']=1/(curr_value+1)*(down_value-curr_value)
+    action_scores['UP']=1/(curr_value+1)*(up_value-curr_value)
+    action_scores['RIGHT']=1/(curr_value+1)*(right_value-curr_value)
+    action_scores['LEFT']=1/(curr_value+1)*(left_value-curr_value)
+    action_scores['WAIT']=1/(curr_value+1)*(curr_value-curr_value)
+    
+    #Zero score negative score actions
+    if action_scores['DOWN']<0: action_scores['DOWN']=0
+    if action_scores['UP']<0: action_scores['UP']=0
+    if action_scores['RIGHT']<0: action_scores['RIGHT']=0
+    if action_scores['LEFT']<0: action_scores['LEFT']=0
+    if action_scores['WAIT']<0: action_scores['WAIT']=0
+
     #add half of residual score to best action
     action_scores[best_action]+=0.5*(1-action_scores[best_action])
     print(action_scores)
     return action_scores
     
-
-#Score function: Max value obtained by a cell: 32
-#We need to associate a score to move: The score should depend on how much the agent is in a risky position (low value of state_matrix) and how much the move will improve(?)
