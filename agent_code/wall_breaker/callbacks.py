@@ -282,9 +282,21 @@ def behave(self, game_state):
     if damage == max(self.damage_history) and damage>1:
         self.damage_history = self.damage_history*0+5
 
-        return "BOMB", score(myarea, damage, safety)
+        return {
+            "BOMB": score(myarea, damage, safety),
+            "UP": 0,
+            "RIGHT": 0,
+            "LEFT": 0,
+            "WAIT": 0,
+        }
 
     # if the best damage in the last n turns suggest to place a bomb
 
 
-    return "WAIT", 0
+    return {
+            "BOMB": 0,
+            "UP": 0,
+            "RIGHT": 0,
+            "LEFT": 0,
+            "WAIT": 0,
+        }
