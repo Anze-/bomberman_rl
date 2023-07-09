@@ -57,14 +57,14 @@ def act(self, game_state):
     if self is None:
         print("SELF IS NONE", self)
 
-    wall_breaker_action_scores = wall_breaker_agent.behave()
+    wall_breaker_action_scores = wall_breaker_agent.behave(self, game_state)
     coin_hunter_params = {
         "reward_fun_weight": 0.5,  # the weight of the reward function
         "n_iters": 10,  # the number of iterations of the stochastic local beam search
         "max_hunters": 5,  # the maximum number of states of each iteration
     }
     coin_hunter_action_scores = coin_hunter_agent.behave(game_state, coin_hunter_params)
-    survival_agent_action_scores = survival_agent.behave()
+    survival_agent_action_scores = survival_agent.behave(self, game_state)
 
     action_scores = [wall_breaker_action_scores, coin_hunter_action_scores, survival_agent_action_scores]
 

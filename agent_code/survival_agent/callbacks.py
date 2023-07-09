@@ -255,7 +255,7 @@ def act(self, game_state):
     self.logger.debug(f'Final State Value Function with value {state_value_matrix}')
     return best_action
 
-def behave(self, game_state: dict, params: dict) -> Dict[str, float]:
+def behave(self, game_state: dict) -> Dict[str, float]:
     
     # initialize output scores
     action_scores = {

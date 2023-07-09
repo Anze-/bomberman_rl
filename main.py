@@ -266,7 +266,7 @@ def main(argv=None):
         # p.add_reporter(neat.Checkpointer(5))
 
         # Run for up to 10 generations.
-        winner = p.run(eval_genomes, 10)
+        winner = p.run(eval_genomes, 2)
 
         # save best genome
         with open('./agent_code/genetic_agent/winner.pkl', 'wb') as output:
