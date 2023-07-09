@@ -20,6 +20,7 @@ def setup(self):
     # Fixed length FIFO queues to avoid repeating the same actions
     self.bomb_history = deque([], 5)
     self.coordinate_history = deque([], 20)
+    self.damage_history = np.array([5, 5, 5, 5, 5, 5])
     # While this timer is positive, agent will not hunt/attack opponents
     self.ignore_others_timer = 0
     self.current_round = 0
@@ -441,6 +442,6 @@ def behave(self, game_state: dict) -> Dict[str, float]:
 
     #add half of residual score to best action
     action_scores[best_action]+=0.5*(1-action_scores[best_action])
-    print(action_scores)
+    #print(action_scores)
     return action_scores
     

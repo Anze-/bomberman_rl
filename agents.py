@@ -104,10 +104,16 @@ class Agent:
         self.last_game_state = None
         self.last_action = None
 
+        # will be modified by the genetic algorithm
         self.genetic_agent_net = None
         self.genome = None
-        # initial random weights of length - approximation 1 => length of the array 3
-        self.weights = np.random.uniform(0, 1, 3)
+
+        self.weights = {
+            "wall_breaker": 0.5,
+            "survival": 0.5,
+            "coin_hunter": 0.5,
+        }
+
 
         self.setup()
 

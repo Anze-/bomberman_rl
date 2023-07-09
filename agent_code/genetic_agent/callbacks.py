@@ -1,12 +1,14 @@
 from collections import deque
 import numpy as np
 import sys
+
 sys.path.append("agent_code")
 
 import agent_code.coin_hunter_agent.callbacks as coin_hunter_agent
 import agent_code.wall_breaker.callbacks as wall_breaker_agent
 import agent_code.rule_based_agent.callbacks as rule_based_agent
 import agent_code.survival_agent.callbacks as survival_agent
+
 
 def setup(self):
     """Called once before a set of games to initialize data structures etc.
@@ -25,6 +27,7 @@ def setup(self):
     # While this timer is positive, agent will not hunt/attack opponents
     self.ignore_others_timer = 0
     self.current_round = 0
+    self.damage_history = np.array([5, 5, 5, 5, 5, 5])
 
 
 def reset_self(self):
@@ -50,6 +53,7 @@ def act(self, game_state):
 
     # pick agent weights
     weights = game_state['agent_weights']
+    #print("AGENT WEIGHTS", weights)
 
     # get action and score from each agent set action = wait if the first argument is None
     if game_state is None:
@@ -59,36 +63,39 @@ def act(self, game_state):
 
     wall_breaker_action_scores = wall_breaker_agent.behave(self, game_state)
     coin_hunter_params = {
-        "reward_fun_weight": 0.5,  # the weight of the reward function
-        "n_iters": 10,  # the number of iterations of the stochastic local beam search
-        "max_hunters": 5,  # the maximum number of states of each iteration
+        "reward_fun_weight": 0.05,  # the weight of the reward function
+        "n_iters": 12,  # the number of iterations of the stochastic local beam search
+        "max_hunters": 10,  # the maximum number of states of each iteration
     }
+
     coin_hunter_action_scores = coin_hunter_agent.behave(game_state, coin_hunter_params)
     survival_agent_action_scores = survival_agent.behave(self, game_state)
 
-    action_scores = [wall_breaker_action_scores, coin_hunter_action_scores, survival_agent_action_scores]
+    action_scores = {
+        "wall_breaker": wall_breaker_action_scores,
+        "survival": survival_agent_action_scores,
+        "coin_hunter": coin_hunter_action_scores,
+    }
+
+    #for key in action_scores:
+    #    print(f"{key}: {action_scores[key]}")
 
     # for each agent, multiply each score on the dictionary by the weight
-    for i,  scores in enumerate(action_scores):
+    for (agent, scores) in action_scores.items():
         for key in scores:
-            action_scores[i][key] = action_scores[i][key] * weights[i]
+            scores[key] *= weights[agent]
 
     # get the action with the highest score
     max_score = 0
     max_action = None
     agent = None
 
-    for i, scores in enumerate(action_scores):
+    for (a, scores) in action_scores.items():
         for key in scores:
             if scores[key] > max_score:
                 max_score = scores[key]
                 max_action = key
-                if i%3 == 0:
-                    agent = "wall_breaker"
-                elif i%3 == 1:
-                    agent = "coin_hunter"
-                else:
-                    agent = "survival"
+                agent = a
 
-    print(f"action {max_action} from agent {agent}")
+    #print(f"action {max_action} from agent {agent}")
     return max_action

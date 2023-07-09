@@ -156,7 +156,6 @@ def open_area(myxy, gamemap):
 
 
 def get_score(myarea, damage, safety):
-    print("----")
     # fraction of the map accessible to the user
     strategic_control = myarea / 256
     # fraction of the theoretical max damage
@@ -279,9 +278,9 @@ def behave(self, game_state):
     # print(myarea, self.damage_history)
     if damage == max(self.damage_history) and damage > 1:
         self.damage_history = self.damage_history * 0 + 5
-
+        score = get_score(myarea, damage, safety)
         return {
-            "BOMB": score(myarea, damage, safety),
+            "BOMB": score,
             "UP": 0,
             "RIGHT": 0,
             "LEFT": 0,

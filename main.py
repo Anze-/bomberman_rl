@@ -16,7 +16,12 @@ GENERATION = 0
 
 ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
 
-
+WEIGHTS_DICT = {
+            "wall_breaker": 0.5,
+            "survival": 0.5,
+            "coin_hunter": 0.5,
+        }
+AGENTS_WEIGHTS = [WEIGHTS_DICT for _ in range(4)]
 class Timekeeper:
     def __init__(self, interval):
         self.interval = interval
@@ -72,10 +77,8 @@ def world_controller(world, n_rounds, *,
                         elif key_pressed in s.INPUT_MAP:
                             user_input = s.INPUT_MAP[key_pressed]
 
-
             # Advances step (for turn based: only if user input is available)
             if world.running and not (turn_based and user_input is None):
-                # QUI ESEGUE GLI STEP!!
                 world.do_step(user_input, gui)
                 user_input = None
             else:
@@ -201,21 +204,22 @@ def main(argv=None):
         gui = None
 
     def eval_genomes(genomes, config):
-        global GENERATION
-        print("Generation: ", GENERATION)
-        if GENERATION % 2 == 0:
-            args.scenario = "classic"
-        else:
-            args.scenario = "coin-heaven"
-        GENERATION += 1
+        #global GENERATION
 
-        # each generation the world is reset - check if it is possible sinse the world-class
+        #if GENERATION % 2 == 0:
+        #    args.scenario = "classic"
+        #else:
+        #    args.scenario = "coin-heaven"
+        #GENERATION += 1
+
+        # each generation the world is reset
         world = BombeRLeWorld(args, agents)
+        gui = None
         if has_gui:
             gui = GUI(world)
-        else:
-            gui = None
 
+
+        global AGENTS_WEIGHTS
 
         i = 0
         while i < len(genomes):
@@ -229,6 +233,7 @@ def main(argv=None):
                 world.agents[index].genetic_agent_net = net
                 world.agents[index].train_genetic = True
                 world.agents[index].genome = genome
+                world.agents[index].weights = AGENTS_WEIGHTS[index]
 
             # execute the world
             world_controller(world, args.n_rounds, skip_end_round=False,
@@ -238,15 +243,18 @@ def main(argv=None):
             # collect ge and fitness
             for g, agent in zip(genomes[i:i + 4], world.agents):
                 g[1].fitness = agent.genome.fitness
-                print(f"agent {agent.name} fitness: ", agent.genome.fitness)
+                #print(f"agent {agent.name} fitness: ", agent.genome.fitness)
 
-            # get scores of all agents - no cosi prende lo score dell'ultimo round, deve prendere lo score di tutta la partita
+            # get scores of all agents at the end of the game (not round)
             scores = [agent.total_score for agent in world.agents]
-            print("scores: ", scores)
-            for agent in world.agents:
+
+            for i, agent in enumerate(world.agents):
+                weights = agent.weights
+                #print(f"agent{i} - wb:{weights['wall_breaker']} s:{weights['survival']} ch:{weights['coin_hunter']} - OLD WEIGHTS")
                 output = agent.genetic_agent_net.activate(scores)
-                print(f"agent {agent.name} output: ", output)
-                agent.weights = output
+                AGENTS_WEIGHTS[i] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+                agent.weights = AGENTS_WEIGHTS[i]
+                #print(f"agent{i} - wb:{agent.weights['wall_breaker']} s:{agent.weights['survival']} ch:{agent.weights['coin_hunter']} - NEW WEIGHTS")
 
             i += 4
 
@@ -266,7 +274,7 @@ def main(argv=None):
         # p.add_reporter(neat.Checkpointer(5))
 
         # Run for up to 10 generations.
-        winner = p.run(eval_genomes, 2)
+        winner = p.run(eval_genomes, 50)
 
         # save best genome
         with open('./agent_code/genetic_agent/winner.pkl', 'wb') as output:

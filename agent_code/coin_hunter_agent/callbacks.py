@@ -1,6 +1,6 @@
 from agent_code.coin_hunter_agent.movement import *
 from agent_code.coin_hunter_agent.hunt import Hunt
-
+import numpy as np
 from typing import Dict, Optional, Tuple
 
 import math
@@ -10,7 +10,20 @@ from collections import deque
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def setup(self):
-    pass
+    """Called once before a set of games to initialize data structures etc.
+
+        The 'self' object passed to this method will be the same in all other
+        callback methods. You can assign new properties (like bomb_history below)
+        here or later on and they will be persistent even across multiple games.
+        You can also use the self.logger object at any time to write to the log
+        file for debugging (see https://docs.python.org/3.7/library/logging.html).
+        """
+    self.logger.debug('Successfully entered setup code')
+    np.random.seed()
+    # Fixed length FIFO queues to avoid repeating the same actions
+    self.bomb_history = deque([], 5)
+    self.coordinate_history = deque([], 20)
+    self.damage_history = np.array([5, 5, 5, 5, 5, 5])
 
 
 # given a starting position, returns the direction and the distance towards the closest

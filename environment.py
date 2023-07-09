@@ -460,7 +460,6 @@ class BombeRLeWorld(GenericWorld):
             a.reset_game_events()
             if a.available_think_time > 0:
                 state["agent_net"] = a.genetic_agent_net
-                state["agent_bombs_left"] = a.bombs_left
                 state['agent_weights'] = a.weights
                 a.act(state)
 
