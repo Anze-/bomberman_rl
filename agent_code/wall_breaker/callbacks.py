@@ -3,6 +3,22 @@ from random import shuffle
 
 import numpy as np
 
+
+class Behaviour:
+    def __init__(self):
+        ...
+
+    def behave(self):
+        action = "WAIT"
+        score = 0
+        return action, score
+
+    def act(self, *args, **kwargs):
+        action, _ = self.behave(self, args)
+        return action
+
+
+
 import settings as s
 
 # the callback functions used by this agent are 4:
@@ -13,7 +29,7 @@ import settings as s
 
 
 def look_for_targets(free_space, start, targets, logger=None):
-    """Find direction of closest target that can be reached via free tiles.
+    """Find direction of closest block.
 
     Performs a breadth-first search of the reachable free tiles until a target is encountered.
     If no target can be reached, the path that takes the agent closest to any target is chosen.
@@ -75,23 +91,94 @@ def setup(self):
     file for debugging (see https://docs.python.org/3.7/library/logging.html).
     """
     self.logger.debug("Successfully entered setup code")
+    self.current_round = 0
     np.random.seed()
     # Fixed length FIFO queues to avoid repeating the same actions
+    self.first_bomb = False
     self.bomb_history = deque([], 5)
-    self.coordinate_history = deque([], 20)
-    # While this timer is positive, agent will not hunt/attack opponents
-    self.ignore_others_timer = 0
-    self.current_round = 0
+    self.damage_history=np.array([5,5,5,5,5,5])
 
 
 def reset_self(self):
-    self.bomb_history = deque([], 5)
-    self.coordinate_history = deque([], 20)
-    # While this timer is positive, agent will not hunt/attack opponents
-    self.ignore_others_timer = 0
+    pass
+
+
+def bomb_damage(bombxy, gamemap, safemap, r=3):
+    #local beam search implementation
+    #r is the bomb radius
+    x, y = bombxy
+    print(x,y)
+    damage = np.sum( 1 == np.concatenate([gamemap[x,y-r:y+r+2].flatten() , gamemap[x-r:x+r+2,y].flatten()]))
+    safemap[x, y-r:y+r+2] = -9
+    safemap[x - r:x + r + 2, y] = -9
+    safety = (safemap == 10).sum()
+    #avoid suicide bombing
+    if safety==0:
+        damage = 0
+
+    return damage, safety, safemap
+def recursive_accessible_area(myxy, mymap, counter, threshold=16):
+    if counter>threshold:
+        return mymap
+    counter += 1
+    x, y = myxy
+    mymap[x, y] = 10
+    neighbours = mymap.copy()[x-1:x+2, y-1:y+2]
+    #print(neighbours)
+    neighbours[0, 0] = -1
+    neighbours[0, 2] = -1
+    neighbours[2, 0] = -1
+    neighbours[2, 2] = -1
+
+    steps = np.vstack(np.where(neighbours == 0)).T
+    #print(mymap)
+    for xy in steps:
+        #print(myxy, xy)
+        newxy = myxy + xy - 1
+        #print(myxy, xy, newxy)
+        x, y = newxy
+        mymap[x, y] = 10
+    for xy in steps:
+        newxy = myxy + (xy - 1)
+        recursive_accessible_area(newxy, mymap, counter, threshold)
+
+    return mymap
+
+def open_area(myxy, gamemap):
+    mymap = gamemap.copy()
+    mymap = recursive_accessible_area(myxy, gamemap, 0, threshold=16)
+    myarea = (mymap == 10).sum()
+
+    return mymap, myarea
+
+
+def get_score(myarea, damage, safety):
+    print("----")
+    # fraction of the map accessible to the user
+    strategic_control = myarea/256
+    # fraction of the theoretical max damage
+    power = damage/12
+    # 0 when 0 cells to survive 1 when all cells survive
+    norm_safety = safety/myarea
+    score = (1-strategic_control)*((0.9*power)+(0.1*norm_safety))
+    #score = (1-strategic_control)*power
+    #print(strategic_control,power,norm_safety)
+    #print((1-strategic_control),(0.9*power),(0.1*norm_safety))
+    #print(score)
+    #print("----")
+
+
+    #the score of the move dicreases when the available area is larger
+    #increases when the bomb can destroy more blocks
+    #decreases when the move is dangerous
+    return score
 
 
 def act(self, game_state):
+    # move randomly
+    # calculate the player available game area
+    # calculate the damage of the current position
+    # if current position has good damage place a bomb
     """
     Called each game step to determine the agent's next action.
 
@@ -99,6 +186,10 @@ def act(self, game_state):
     which is a dictionary. Consult 'get_state_for_agent' in environment.py to see
     what it contains.
     """
+
+    #
+    # import pdb
+    # pdb.set_trace()
     self.logger.info("Picking action according to rule set")
     # Check if we are in a different round
     if game_state["round"] != self.current_round:
@@ -111,129 +202,89 @@ def act(self, game_state):
     bomb_xys = [xy for (xy, t) in bombs]
     others = [xy for (n, s, b, xy) in game_state["others"]]
     coins = game_state["coins"]
-    bomb_map = np.ones(arena.shape) * 5
-    for (xb, yb), t in bombs:
-        for (i, j) in [(xb + h, yb) for h in range(-3, 4)] + [(xb, yb + h) for h in range(-3, 4)]:
-            if (0 < i < bomb_map.shape[0]) and (0 < j < bomb_map.shape[1]):
-                bomb_map[i, j] = min(bomb_map[i, j], t)
+    myxy = game_state['self'][3]
+    x, y = myxy
 
-    # If agent has been in the same location three times recently, it's a loop
-    if self.coordinate_history.count((x, y)) > 2:
-        self.ignore_others_timer = 5
-    else:
-        self.ignore_others_timer -= 1
-    self.coordinate_history.append((x, y))
+    # random walk
+    available_moves = []
+    if arena[x+1,y] == 0: available_moves.append("RIGHT")
+    if arena[x-1, y] == 0: available_moves.append("LEFT")
+    if arena[x, y-1] == 0: available_moves.append("UP")
+    if arena[x, y+1] == 0: available_moves.append("DOWN")
+    walk = np.random.choice(available_moves)
 
-    # Check which moves make sense at all
-    directions = [(x, y), (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
-    valid_tiles, valid_actions = [], []
-    for d in directions:
-        if (
-            (arena[d] == 0)
-            and (game_state["explosion_map"][d] < 1)
-            and (bomb_map[d] > 0)
-            and (not d in others)
-            and (not d in bomb_xys)
-        ):
-            valid_tiles.append(d)
-    if (x - 1, y) in valid_tiles:
-        valid_actions.append("LEFT")
-    if (x + 1, y) in valid_tiles:
-        valid_actions.append("RIGHT")
-    if (x, y - 1) in valid_tiles:
-        valid_actions.append("UP")
-    if (x, y + 1) in valid_tiles:
-        valid_actions.append("DOWN")
-    if (x, y) in valid_tiles:
-        valid_actions.append("WAIT")
-    # Disallow the BOMB action if agent dropped a bomb in the same spot recently
-    if (bombs_left > 0) and (x, y) not in self.bomb_history:
-        valid_actions.append("BOMB")
-    self.logger.debug(f"Valid actions: {valid_actions}")
 
-    # Collect basic action proposals in a queue
-    # Later on, the last added action that is also valid will be chosen
-    action_ideas = ["UP", "DOWN", "LEFT", "RIGHT"]
-    shuffle(action_ideas)
+    # compute heuristics
+    accmap, myarea = open_area(myxy, arena)
+    safemap = accmap.copy()
+    damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
+    print(safemap)
+    self.damage_history = self.damage_history[1:]
+    self.damage_history = np.append(self.damage_history,damage)
+    print(myarea,self.damage_history, get_score(myarea, damage, safety))
+    if damage == max(self.damage_history) and damage>1:
+        self.damage_history = self.damage_history*0+5
+        return "BOMB"
 
-    # Compile a list of 'targets' the agent should head towards
-    cols = range(1, arena.shape[0] - 1)
-    rows = range(1, arena.shape[0] - 1)
-    dead_ends = [
-        (x, y)
-        for x in cols
-        for y in rows
-        if (arena[x, y] == 0) and ([arena[x + 1, y], arena[x - 1, y], arena[x, y + 1], arena[x, y - 1]].count(0) == 1)
-    ]
-    crates = [(x, y) for x in cols for y in rows if (arena[x, y] == 1)]
-    targets = coins + dead_ends + crates
-    # Add other agents as targets if in hunting mode or no crates/coins left
-    if self.ignore_others_timer <= 0 or (len(crates) + len(coins) == 0):
-        targets.extend(others)
+    # if the best damage in the last n turns suggest to place a bomb
 
-    # Exclude targets that are currently occupied by a bomb
-    targets = [targets[i] for i in range(len(targets)) if targets[i] not in bomb_xys]
 
-    # Take a step towards the most immediately interesting target
-    free_space = arena == 0
-    if self.ignore_others_timer > 0:
-        for o in others:
-            free_space[o] = False
-    d = look_for_targets(free_space, (x, y), targets, self.logger)
-    if d == (x, y - 1):
-        action_ideas.append("UP")
-    if d == (x, y + 1):
-        action_ideas.append("DOWN")
-    if d == (x - 1, y):
-        action_ideas.append("LEFT")
-    if d == (x + 1, y):
-        action_ideas.append("RIGHT")
-    if d is None:
-        self.logger.debug("All targets gone, nothing to do anymore")
-        action_ideas.append("WAIT")
+    return walk
 
-    # Add proposal to drop a bomb if at dead end
-    if (x, y) in dead_ends:
-        action_ideas.append("BOMB")
-    # Add proposal to drop a bomb if touching an opponent
-    if len(others) > 0:
-        if (min(abs(xy[0] - x) + abs(xy[1] - y) for xy in others)) <= 1:
-            action_ideas.append("BOMB")
-    # Add proposal to drop a bomb if arrived at target and touching crate
-    if d == (x, y) and ([arena[x + 1, y], arena[x - 1, y], arena[x, y + 1], arena[x, y - 1]].count(1) > 0):
-        action_ideas.append("BOMB")
 
-    # Add proposal to run away from any nearby bomb about to blow
-    for (xb, yb), t in bombs:
-        if (xb == x) and (abs(yb - y) < 4):
-            # Run away
-            if yb > y:
-                action_ideas.append("UP")
-            if yb < y:
-                action_ideas.append("DOWN")
-            # If possible, turn a corner
-            action_ideas.append("LEFT")
-            action_ideas.append("RIGHT")
-        if (yb == y) and (abs(xb - x) < 4):
-            # Run away
-            if xb > x:
-                action_ideas.append("LEFT")
-            if xb < x:
-                action_ideas.append("RIGHT")
-            # If possible, turn a corner
-            action_ideas.append("UP")
-            action_ideas.append("DOWN")
-    # Try random direction if directly on top of a bomb
-    for (xb, yb), t in bombs:
-        if xb == x and yb == y:
-            action_ideas.extend(action_ideas[:4])
 
-    # Pick last action added to the proposals list that is also valid
-    while len(action_ideas) > 0:
-        a = action_ideas.pop()
-        if a in valid_actions:
-            # Keep track of chosen action for cycle detection
-            if a == "BOMB":
-                self.bomb_history.append((x, y))
+def behave(self, game_state):
+    # calculate the player available game area
+    # calculate the damage of the current position
+    # if current position has good damage place a bomb
+    """
+    Called each game step to determine the agent's next action.
 
-            return a
+    You can find out about the state of the game environment via game_state,
+    which is a dictionary. Consult 'get_state_for_agent' in environment.py to see
+    what it contains.
+    """
+
+    #
+    # import pdb
+    # pdb.set_trace()
+    self.logger.info("Picking action according to rule set")
+    # Check if we are in a different round
+    if game_state["round"] != self.current_round:
+        reset_self(self)
+        self.current_round = game_state["round"]
+    # Gather information about the game state
+    arena = game_state["field"]
+    _, score, bombs_left, (x, y) = game_state["self"]
+    bombs = game_state["bombs"]
+    bomb_xys = [xy for (xy, t) in bombs]
+    others = [xy for (n, s, b, xy) in game_state["others"]]
+    coins = game_state["coins"]
+    myxy = game_state['self'][3]
+    x, y = myxy
+
+    # random walk
+    available_moves = []
+    if arena[x+1,y] == 0: available_moves.append("RIGHT")
+    if arena[x-1, y] == 0: available_moves.append("LEFT")
+    if arena[x, y-1] == 0: available_moves.append("UP")
+    if arena[x, y+1] == 0: available_moves.append("DOWN")
+    walk = np.random.choice(available_moves)
+
+
+    # compute heuristics
+    accmap, myarea = open_area(myxy, arena)
+    safemap = accmap.copy()
+    damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
+    self.damage_history = self.damage_history[1:]
+    self.damage_history = np.append(self.damage_history,damage)
+    print(myarea, self.damage_history)
+    if damage == max(self.damage_history) and damage>1:
+        self.damage_history = self.damage_history*0+5
+
+        return "BOMB", score(myarea, damage, safety)
+
+    # if the best damage in the last n turns suggest to place a bomb
+
+
+    return "WAIT", 0
