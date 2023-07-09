@@ -53,9 +53,9 @@ def act(self, game_state):
 
     # get action and score from each agent set action = wait if the first argument is None
     if game_state is None:
-        print("game state", game_state)
+        print("GAME STATE IS NONE", game_state)
     if self is None:
-        print("self", self)
+        print("SELF IS NONE", self)
 
     wall_breaker_action_scores = wall_breaker_agent.behave()
     coin_hunter_params = {
@@ -76,12 +76,19 @@ def act(self, game_state):
     # get the action with the highest score
     max_score = 0
     max_action = None
+    agent = None
 
     for i, scores in enumerate(action_scores):
         for key in scores:
             if scores[key] > max_score:
                 max_score = scores[key]
                 max_action = key
+                if i%3 == 0:
+                    agent = "wall_breaker"
+                elif i%3 == 1:
+                    agent = "coin_hunter"
+                else:
+                    agent = "survival"
 
-    print("action: ", max_action)
+    print(f"action {max_action} from agent {agent}")
     return max_action

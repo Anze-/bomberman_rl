@@ -247,7 +247,7 @@ def behave():
         "UP": 0.0,
         "DOWN": 0.0,
         "LEFT": 0.0,
-        "Dir.RIGHT.name": 0.0,
+        "RIGHT": 0.0,
         'BOMB': 0.0,
         'WAIT': 0.0,
     }
