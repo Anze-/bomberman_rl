@@ -229,6 +229,7 @@ def act(self, game_state):
 
     # if the best damage in the last n turns suggest to place a bomb
 
+    brick_walk(accmap, myxy)
 
     return walk
 
@@ -254,8 +255,48 @@ def random_walk(arena):
     return score_dict
 
 
-def brick_walk(arena):
-    # find the shortest path to the best brick
+def best_bomb(accmap):
+    heumap = np.zeros([17, 17])
+    for P in np.ndenumerate(accmap):
+        (x, y), val = P
+        if val == 10:
+            safemap = copy.deepcopy(accmap)
+            damage, safety, safemap = bomb_damage([x, y], accmap, safemap, r=3)
+            heumap[x, y] = damage
+
+    best_bomb_xy = np.unravel_index(np.argmax(heumap), heumap.shape)
+    return best_bomb_xy, heumap
+
+
+def dijkstra(accmap, myxy, bombxy):
+    from dijkstra import Graph, DijkstraSPF
+    # create the graph
+    graph = Graph()
+    for P in np.ndenumerate(accmap):
+        (x, y), val = P
+        if val == 10:
+            try:
+                if accmap[x+1, y] == 10:
+                    print(f"{x},{y}", " <-> ", f"{x+1},{y}")
+                    graph.add_edge(f"{x},{y}", f"{x+1},{y}", 1)
+                    graph.add_edge(f"{x+1},{y}", f"{x},{y}", 1)
+                if accmap[x, y+1] == 10:
+                    print(f"{x},{y}", " <-> ", f"{x},{y+1}")
+                    graph.add_edge(f"{x},{y}", f"{x},{y+1}", 1)
+                    graph.add_edge(f"{x},{y+1}", f"{x},{y}", 1)
+            except:
+                #print("out of range")
+                pass
+    x, y = myxy
+    bx, by = bombxy
+    dijk = DijkstraSPF(graph, f"{x},{y}")
+    import pdb
+    pdb.set_trace()
+    path = dijk.get_path(f"{bx},{by}")
+    return path
+
+
+def brick_walk(accmap,myxy):
     score_dict = {
             "BOMB": 0,
             "UP": 0,
@@ -265,13 +306,21 @@ def brick_walk(arena):
             "WAIT": 0,
         }
 
-    # random walk
-    available_moves = []
-    if arena[x+1, y] == 0: available_moves.append("RIGHT")
-    if arena[x-1, y] == 0: available_moves.append("LEFT")
-    if arena[x, y-1] == 0: available_moves.append("UP")
-    if arena[x, y+1] == 0: available_moves.append("DOWN")
-    score_dict[np.random.choice(available_moves)] = 0.05
+    bombxy, heumap = best_bomb(accmap)
+    best_damage = heumap.max()/12
+
+    bestpath = dijkstra(accmap, myxy, bombxy)
+    distance = len(bestpath)
+
+    move_score = best_damage/distance
+
+    nextxy = list(map(int, bestpath[1].split(",")))
+    move = np.array(nextxy) - np.array(myxy)
+    if (move == [-1,  0]).all(): score_dict["LEFT"] = move_score
+    if (move == [ 1,  0]).all(): score_dict["RIGHT"] = move_score
+    if (move == [ 0, -1]).all(): score_dict["UP"] = move_score
+    if (move == [ 0,  1]).all(): score_dict["DOWN"] = move_score
+
     return score_dict
 
 
