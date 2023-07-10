@@ -19,8 +19,8 @@ class Behaviour:
         return action
 
 
-import settings as s
 
+import settings as s
 
 # the callback functions used by this agent are 4:
 #      look_for_targets : find closest target
@@ -97,7 +97,7 @@ def setup(self):
     # Fixed length FIFO queues to avoid repeating the same actions
     self.first_bomb = False
     self.bomb_history = deque([], 5)
-    self.damage_history = np.array([5, 5, 5, 5, 5, 5])
+    self.damage_history=np.array([5,5,5,5,5,5])
 
 
 def reset_self(self):
@@ -105,40 +105,48 @@ def reset_self(self):
 
 
 def bomb_damage(bombxy, gamemap, safemap, r=3):
-    # local beam search implementation
-    # r is the bomb radius
+    #local beam search implementation
+    #r is the bomb radius
     x, y = bombxy
-    # print(x,y)
-    damage = np.sum(1 == np.concatenate([gamemap[x, y - r:y + r + 2].flatten(), gamemap[x - r:x + r + 2, y].flatten()]))
-    safemap[x, y - r:y + r + 2] = -9
-    safemap[x - r:x + r + 2, y] = -9
+    #print(x, y)
+    damage = np.sum(
+        1 == np.concatenate([
+            gamemap[x, max(0,y-r):min(16,y+r+2)].flatten(),
+             gamemap[max(0,x-r):max(16,x+r+2), y].flatten()
+        ])
+    )
+    safemap[x, max(0,y-r):min(16,y+r+2)] = -9
+    safemap[max(0,x-r):max(16,x+r+2), y] = -9
     safety = (safemap == 10).sum()
-    # avoid suicide bombing
+    #print(safemap)
+    #print("safety", safety)
+    #print([gamemap[x, y-r:y+r+2], gamemap[x-r:x+r+2, y]])
+    #import pdb
+    #pdb.set_trace()
+    #avoid suicide bombing
     if safety == 0:
         damage = 0
 
     return damage, safety, safemap
-
-
 def recursive_accessible_area(myxy, mymap, counter, threshold=16):
-    if counter > threshold:
+    if counter>threshold:
         return mymap
     counter += 1
     x, y = myxy
     mymap[x, y] = 10
-    neighbours = copy.deepcopy(mymap)[x - 1:x + 2, y - 1:y + 2]
-    # print(neighbours)
+    neighbours = copy.deepcopy(mymap)[x-1:x+2, y-1:y+2]
+    #print(neighbours)
     neighbours[0, 0] = -1
     neighbours[0, 2] = -1
     neighbours[2, 0] = -1
     neighbours[2, 2] = -1
 
     steps = np.vstack(np.where(neighbours == 0)).T
-    # print(mymap)
+    #print(mymap)
     for xy in steps:
-        # print(myxy, xy)
+        #print(myxy, xy)
         newxy = myxy + xy - 1
-        # print(myxy, xy, newxy)
+        #print(myxy, xy, newxy)
         x, y = newxy
         mymap[x, y] = 10
     for xy in steps:
@@ -147,33 +155,33 @@ def recursive_accessible_area(myxy, mymap, counter, threshold=16):
 
     return mymap
 
-
 def open_area(myxy, gamemap):
     mymap = copy.deepcopy(gamemap)
-    mymap = recursive_accessible_area(myxy, gamemap, 0, threshold=16)
+    mymap = recursive_accessible_area(myxy, mymap, 0, threshold=16)
     myarea = (mymap == 10).sum()
 
     return mymap, myarea
 
 
 def get_score(myarea, damage, safety):
-    # print("----")
+    print("----")
     # fraction of the map accessible to the user
-    strategic_control = myarea / 256
+    strategic_control = myarea/256
     # fraction of the theoretical max damage
-    power = damage / 12
+    power = damage/12
     # 0 when 0 cells to survive 1 when all cells survive
-    norm_safety = safety / myarea
-    score = (1 - strategic_control) * ((0.9 * power) + (0.1 * norm_safety))
-    # score = (1-strategic_control)*power
-    # print(strategic_control,power,norm_safety)
-    # print((1-strategic_control),(0.9*power),(0.1*norm_safety))
-    # print(score)
-    # print("----")
+    norm_safety = safety/myarea
+    score = (1-strategic_control)*((0.9*power)+(0.1*norm_safety))
+    #score = (1-strategic_control)*power
+    #print(strategic_control,power,norm_safety)
+    #print((1-strategic_control),(0.9*power),(0.1*norm_safety))
+    #print(score)
+    #print("----")
 
-    # the score of the move dicreases when the available area is larger
-    # increases when the bomb can destroy more blocks
-    # decreases when the move is dangerous
+
+    #the score of the move dicreases when the available area is larger
+    #increases when the bomb can destroy more blocks
+    #decreases when the move is dangerous
     return score
 
 
@@ -210,72 +218,127 @@ def act(self, game_state):
 
     # random walk
     available_moves = []
-    if arena[x + 1, y] == 0: available_moves.append("RIGHT")
-    if arena[x - 1, y] == 0: available_moves.append("LEFT")
-    if arena[x, y - 1] == 0: available_moves.append("UP")
-    if arena[x, y + 1] == 0: available_moves.append("DOWN")
+    if arena[x+1,y] == 0: available_moves.append("RIGHT")
+    if arena[x-1, y] == 0: available_moves.append("LEFT")
+    if arena[x, y-1] == 0: available_moves.append("UP")
+    if arena[x, y+1] == 0: available_moves.append("DOWN")
     walk = np.random.choice(available_moves)
+
 
     # compute heuristics
     accmap, myarea = open_area(myxy, arena)
     safemap = copy.deepcopy(accmap)
     damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
-    # print(safemap)
+    #print(safemap)
     self.damage_history = self.damage_history[1:]
-    self.damage_history = np.append(self.damage_history, damage)
-    # print(myarea,self.damage_history, get_score(myarea, damage, safety))
-    if damage == max(self.damage_history) and damage > 1:
-        self.damage_history = self.damage_history * 0 + 5
+    self.damage_history = np.append(self.damage_history,damage)
+    #print(myarea,self.damage_history, get_score(myarea, damage, safety))
+    if damage == max(self.damage_history) and damage>0:
+        self.damage_history = self.damage_history*0+5
+        print(damage,"=> BOMB",)
         return "BOMB"
 
     # if the best damage in the last n turns suggest to place a bomb
 
-    return walk
+    # too slow!
+    scd = brick_walk(accmap, myxy)
+    return list(scd.keys())[np.argmax(list(scd.values()))]
 
 
-def random_walk(arena, x, y):
+
+def random_walk(arena):
     score_dict = {
-        "BOMB": 0,
-        "UP": 0,
-        "DOWN": 0,
-        "RIGHT": 0,
-        "LEFT": 0,
-        "WAIT": 0,
-    }
+            "BOMB": 0,
+            "UP": 0,
+            "DOWN": 0,
+            "RIGHT": 0,
+            "LEFT": 0,
+            "WAIT": 0,
+        }
 
     # random walk
     available_moves = []
-    if arena[x + 1, y] == 0: available_moves.append("RIGHT")
-    if arena[x - 1, y] == 0: available_moves.append("LEFT")
-    if arena[x, y - 1] == 0: available_moves.append("UP")
-    if arena[x, y + 1] == 0: available_moves.append("DOWN")
-
-    if len(available_moves) != 0:
-        score_dict[np.random.choice(available_moves)] = 0.05
-    else:
-        score_dict["WAIT"] = 0.05
-
+    if arena[x+1,y] == 0: available_moves.append("RIGHT")
+    if arena[x-1, y] == 0: available_moves.append("LEFT")
+    if arena[x, y-1] == 0: available_moves.append("UP")
+    if arena[x, y+1] == 0: available_moves.append("DOWN")
+    score_dict[np.random.choice(available_moves)] = 0.05
     return score_dict
 
 
-def brick_walk(arena, x, y):
-    # find the shortest path to the best brick
-    score_dict = {
-        "BOMB": 0,
-        "UP": 0,
-        "DOWN": 0,
-        "RIGHT": 0,
-        "LEFT": 0,
-        "WAIT": 0,
-    }
+def best_bomb(accmap):
+    heumap = np.zeros([17, 17])
+    for P in np.ndenumerate(accmap):
+        (x, y), val = P
+        if val == 10:
+            safemap = copy.deepcopy(accmap)
+            damage, safety, safemap = bomb_damage([x, y], accmap, safemap, r=3)
+            print(x,y,damage)
+            heumap[x, y] = damage
 
-    # random walk
-    available_moves = []
-    if arena[x + 1, y] == 0: available_moves.append("RIGHT")
-    if arena[x - 1, y] == 0: available_moves.append("LEFT")
-    if arena[x, y - 1] == 0: available_moves.append("UP")
-    if arena[x, y + 1] == 0: available_moves.append("DOWN")
-    score_dict[np.random.choice(available_moves)] = 0.05
+    best_bomb_xy = np.unravel_index(np.argmax(heumap), heumap.shape)
+    print(heumap)
+    print("best bomb xy: ",  best_bomb_xy)
+    return best_bomb_xy, heumap
+
+
+def dijkstra(accmap, myxy, bombxy):
+    from dijkstra import Graph, DijkstraSPF
+    # create the graph
+    graph = Graph()
+    for P in np.ndenumerate(accmap):
+        (x, y), val = P
+        if val == 10:
+            try:
+                if accmap[x+1, y] == 10:
+                    print(f"{x},{y}", " <-> ", f"{x+1},{y}")
+                    graph.add_edge(f"{x},{y}", f"{x+1},{y}", 1)
+                    graph.add_edge(f"{x+1},{y}", f"{x},{y}", 1)
+                if accmap[x, y+1] == 10:
+                    print(f"{x},{y}", " <-> ", f"{x},{y+1}")
+                    graph.add_edge(f"{x},{y}", f"{x},{y+1}", 1)
+                    graph.add_edge(f"{x},{y+1}", f"{x},{y}", 1)
+            except:
+                #print("out of range")
+                pass
+    x, y = myxy
+    bx, by = bombxy
+    dijk = DijkstraSPF(graph, f"{x},{y}")
+    #import pdb
+    #pdb.set_trace()
+    path = dijk.get_path(f"{bx},{by}")
+    return path
+
+
+def brick_walk(accmap,myxy):
+    score_dict = {
+            "BOMB": 0,
+            "UP": 0,
+            "DOWN": 0,
+            "RIGHT": 0,
+            "LEFT": 0,
+            "WAIT": 0,
+        }
+
+    bombxy, heumap = best_bomb(accmap)
+    best_damage = heumap.max()/12
+
+    bestpath = dijkstra(accmap, myxy, bombxy)
+    distance = len(bestpath)
+
+    move_score = best_damage/distance
+    #import pdb
+    #pdb.set_trace()
+    if len(bestpath)<2:
+        nextxy = myxy
+    else:
+        nextxy = list(map(int, bestpath[1].split(",")))
+    move = np.array(nextxy) - np.array(myxy)
+    if (move == [-1,  0]).all(): score_dict["LEFT"] = move_score
+    if (move == [ 1,  0]).all(): score_dict["RIGHT"] = move_score
+    if (move == [ 0, -1]).all(): score_dict["UP"] = move_score
+    if (move == [ 0,  1]).all(): score_dict["DOWN"] = move_score
+
     return score_dict
 
 
@@ -311,21 +374,22 @@ def behave(self, game_state):
 
     # random walk
     available_moves = []
-    if arena[x + 1, y] == 0: available_moves.append("RIGHT")
-    if arena[x - 1, y] == 0: available_moves.append("LEFT")
-    if arena[x, y - 1] == 0: available_moves.append("UP")
-    if arena[x, y + 1] == 0: available_moves.append("DOWN")
+    if arena[x+1,y] == 0: available_moves.append("RIGHT")
+    if arena[x-1, y] == 0: available_moves.append("LEFT")
+    if arena[x, y-1] == 0: available_moves.append("UP")
+    if arena[x, y+1] == 0: available_moves.append("DOWN")
     walk = np.random.choice(available_moves)
+
 
     # compute heuristics
     accmap, myarea = open_area(myxy, arena)
     safemap = copy.deepcopy(accmap)
     damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
     self.damage_history = self.damage_history[1:]
-    self.damage_history = np.append(self.damage_history, damage)
-    #print(myarea, self.damage_history)
+    self.damage_history = np.append(self.damage_history,damage)
+    print(myarea, self.damage_history)
     if damage == max(self.damage_history) and damage > 0:
-        self.damage_history = self.damage_history * 0 + 5
+        self.damage_history = self.damage_history*0+5
         return {
             "BOMB": get_score(myarea, damage, safety),
             "UP": 0,
@@ -337,4 +401,5 @@ def behave(self, game_state):
 
     # if the best damage in the last n turns suggest to place a bomb
 
-    return random_walk(arena, x, y)
+    return brick_walk(accmap, myxy) #random_walk(arena)
+
