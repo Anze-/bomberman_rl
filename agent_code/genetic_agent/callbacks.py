@@ -51,6 +51,8 @@ def act(self, game_state):
         reset_self(self)
         self.current_round = game_state["round"]
 
+    #name = game_state['agent_name']
+
     # pick agent weights
     weights = game_state['agent_weights']
     #print("AGENT WEIGHTS", weights)
@@ -61,13 +63,12 @@ def act(self, game_state):
     if self is None:
         print("SELF IS NONE", self)
 
-    wall_breaker_action_scores = wall_breaker_agent.behave(self, game_state)
     coin_hunter_params = {
         "reward_fun_weight": 0.05,  # the weight of the reward function
         "n_iters": 12,  # the number of iterations of the stochastic local beam search
         "max_hunters": 10,  # the maximum number of states of each iteration
     }
-
+    wall_breaker_action_scores = wall_breaker_agent.behave(self, game_state)
     coin_hunter_action_scores = coin_hunter_agent.behave(game_state, coin_hunter_params)
     survival_agent_action_scores = survival_agent.behave(self, game_state)
 
@@ -77,8 +78,9 @@ def act(self, game_state):
         "coin_hunter": coin_hunter_action_scores,
     }
 
-    for key in action_scores:
-        print(f"{key}: {action_scores[key]}")
+    #for key in action_scores:
+    #    if name == "genetic_agent_0":
+    #        print(f"genetic_agent_0 {key}: {action_scores[key]}")
 
     # for each agent, multiply each score on the dictionary by the weight
     for (agent, scores) in action_scores.items():

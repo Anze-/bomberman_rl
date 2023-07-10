@@ -365,12 +365,17 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     goals = np.where(state_value_matrix == np.amax(state_value_matrix))
     listOfGoals = list(zip(goals[0], goals[1]))
     dis=50
+
+    # DA MODIFICARE CON IL GOAL VERO
+    true_goal=(0,0)
+
     #Take the goal nearest to the agent
     for goal in listOfGoals:
         tempdis=heuristic((goal[1],goal[0]), (x,y))
         if (dis>tempdis):
             dis=tempdis
             true_goal=goal
+
     (x_goal,y_goal)=true_goal
     true_goal=(y_goal,x_goal)
     came_from, cost_so_far=a_star_search(state_value_matrix, start=(x,y), goal=(true_goal), self=self)
@@ -441,7 +446,7 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     if action_scores['WAIT']<0: action_scores['WAIT']=0
 
     #add half of residual score to best action
-    action_scores[best_action]+=0.5*(1-action_scores[best_action])
+    #action_scores[best_action]+=0.5*(1-action_scores[best_action])
     #print(action_scores)
     return action_scores
     
