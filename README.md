@@ -35,8 +35,12 @@ is the dict accessible by `act`, it contains the whole observable game state as 
             'bombs': [bomb.get_state() for bomb in self.bombs],
             'coins': [coin.get_state() for coin in self.coins if coin.collectable],
             'user_input': self.user_input,
+            'dead_zones': <function>(coord,t)
         }
 ```
+
+Note: now the game state provides under "dead_zones" function to evaluate immediately deadly positions:
+the function requires two arguments: the coords (x,y) and the time (t). The function returns True when deadly.
 
 | key               | **type** | **shape** | **values**                     | **meaning**                            |
 |-------------------|----------|-----------|--------------------------------|----------------------------------------|
