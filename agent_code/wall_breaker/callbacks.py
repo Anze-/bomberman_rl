@@ -242,18 +242,19 @@ def act(self, game_state):
 
     # too slow!
     scd = brick_walk(accmap, myxy)
+    print(scd)
     return list(scd.keys())[np.argmax(list(scd.values()))]
 
 
 
 def random_walk(arena):
     score_dict = {
+            "WAIT": 0,
             "BOMB": 0,
             "UP": 0,
             "DOWN": 0,
             "RIGHT": 0,
             "LEFT": 0,
-            "WAIT": 0,
         }
 
     # random walk
@@ -312,13 +313,17 @@ def dijkstra(accmap, myxy, bombxy):
 
 def brick_walk(accmap,myxy):
     score_dict = {
+            "WAIT": 0,
             "BOMB": 0,
             "UP": 0,
             "DOWN": 0,
             "RIGHT": 0,
             "LEFT": 0,
-            "WAIT": 0,
         }
+
+    # check we have something to break otherwise exit now
+    if (accmap == 1).sum() < 1:
+        return score_dict
 
     bombxy, heumap = best_bomb(accmap)
     best_damage = heumap.max()/12
@@ -390,16 +395,18 @@ def behave(self, game_state):
     print(myarea, self.damage_history)
     if damage == max(self.damage_history) and damage > 0:
         self.damage_history = self.damage_history*0+5
+        import pdb
+        pdb.set_trace()
         return {
+            "WAIT": 0,
             "BOMB": get_score(myarea, damage, safety),
             "UP": 0,
             "DOWN": 0,
             "RIGHT": 0,
             "LEFT": 0,
-            "WAIT": 0,
         }
 
     # if the best damage in the last n turns suggest to place a bomb
 
-    return brick_walk(accmap, myxy) #random_walk(arena)
+    return brick_walk(accmap, myxy) # random_walk(arena)
 
