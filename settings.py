@@ -14,7 +14,7 @@ SCENARIOS = {
     # This is the tournament game mode
     "classic": {
         "CRATE_DENSITY": 0.75,
-        "COIN_COUNT": 9
+        "COIN_COUNT": 39
     }
     # Feel free to add more game modes and properties
     # game is created in environment.py -> BombeRLeWorld -> build_arena()
@@ -42,7 +42,7 @@ EXPLOSION_TIMER = 2  # = 1 of bomb explosion + N of lingering around
 # Rules for agents
 TIMEOUT = 0.5
 TRAIN_TIMEOUT = float("inf")
-REWARD_KILL = 5
+REWARD_KILL = 0
 REWARD_COIN = 1
 
 # User input

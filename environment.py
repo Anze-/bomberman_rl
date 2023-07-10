@@ -194,6 +194,7 @@ class GenericWorld:
                 for a in self.active_agents:
                     if a.x == coin.x and a.y == coin.y:
                         coin.collectable = False
+                        coin.picked = True
                         self.logger.info(f'Agent <{a.name}> picked up coin at {(a.x, a.y)} and receives 1 point')
                         a.update_score(s.REWARD_COIN)
                         a.add_event(e.COIN_COLLECTED)
@@ -297,6 +298,10 @@ class GenericWorld:
         # Check round stopping criteria
         if len(self.active_agents) == 0:
             self.logger.info(f'No agent left alive, wrap up round')
+            return True
+
+        if all([c.picked for c in self.coins]):
+            self.logger.info(f'All coins have been picked, wrap up round')
             return True
 
         if (len(self.active_agents) == 1

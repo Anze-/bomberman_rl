@@ -25,7 +25,8 @@ class Coin(Item):
         super(Coin, self).__init__()
         self.x = pos[0]
         self.y = pos[1]
-        self.collectable = collectable
+        self.collectable = collectable # whether the coin is collectable (not yet collected and revealed)
+        self.picked = False            # whether the coin has been collected by some agent
 
         self.rect = self.avatar.get_rect()
         self.space_x = self.rect.centerx
