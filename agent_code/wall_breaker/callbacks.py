@@ -108,13 +108,23 @@ def bomb_damage(bombxy, gamemap, safemap, r=3):
     #local beam search implementation
     #r is the bomb radius
     x, y = bombxy
-    print(x,y)
-    damage = np.sum( 1 == np.concatenate([gamemap[x,y-r:y+r+2].flatten() , gamemap[x-r:x+r+2,y].flatten()]))
-    safemap[x, y-r:y+r+2] = -9
-    safemap[x - r:x + r + 2, y] = -9
+    #print(x, y)
+    damage = np.sum(
+        1 == np.concatenate([
+            gamemap[x, max(0,y-r):min(16,y+r+2)].flatten(),
+             gamemap[max(0,x-r):max(16,x+r+2), y].flatten()
+        ])
+    )
+    safemap[x, max(0,y-r):min(16,y+r+2)] = -9
+    safemap[max(0,x-r):max(16,x+r+2), y] = -9
     safety = (safemap == 10).sum()
+    #print(safemap)
+    #print("safety", safety)
+    #print([gamemap[x, y-r:y+r+2], gamemap[x-r:x+r+2, y]])
+    #import pdb
+    #pdb.set_trace()
     #avoid suicide bombing
-    if safety==0:
+    if safety == 0:
         damage = 0
 
     return damage, safety, safemap
@@ -219,18 +229,20 @@ def act(self, game_state):
     accmap, myarea = open_area(myxy, arena)
     safemap = copy.deepcopy(accmap)
     damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
-    print(safemap)
+    #print(safemap)
     self.damage_history = self.damage_history[1:]
     self.damage_history = np.append(self.damage_history,damage)
-    print(myarea,self.damage_history, get_score(myarea, damage, safety))
-    if damage == max(self.damage_history) and damage>1:
+    #print(myarea,self.damage_history, get_score(myarea, damage, safety))
+    if damage == max(self.damage_history) and damage>0:
         self.damage_history = self.damage_history*0+5
+        print(damage,"=> BOMB",)
         return "BOMB"
 
     # if the best damage in the last n turns suggest to place a bomb
 
     # too slow!
-    return brick_walk(accmap, myxy)
+    scd = brick_walk(accmap, myxy)
+    return list(scd.keys())[np.argmax(list(scd.values()))]
 
 
 
@@ -261,9 +273,12 @@ def best_bomb(accmap):
         if val == 10:
             safemap = copy.deepcopy(accmap)
             damage, safety, safemap = bomb_damage([x, y], accmap, safemap, r=3)
+            print(x,y,damage)
             heumap[x, y] = damage
 
     best_bomb_xy = np.unravel_index(np.argmax(heumap), heumap.shape)
+    print(heumap)
+    print("best bomb xy: ",  best_bomb_xy)
     return best_bomb_xy, heumap
 
 
@@ -289,8 +304,8 @@ def dijkstra(accmap, myxy, bombxy):
     x, y = myxy
     bx, by = bombxy
     dijk = DijkstraSPF(graph, f"{x},{y}")
-    import pdb
-    pdb.set_trace()
+    #import pdb
+    #pdb.set_trace()
     path = dijk.get_path(f"{bx},{by}")
     return path
 
@@ -312,8 +327,12 @@ def brick_walk(accmap,myxy):
     distance = len(bestpath)
 
     move_score = best_damage/distance
-
-    nextxy = list(map(int, bestpath[1].split(",")))
+    #import pdb
+    #pdb.set_trace()
+    if len(bestpath)<2:
+        nextxy = myxy
+    else:
+        nextxy = list(map(int, bestpath[1].split(",")))
     move = np.array(nextxy) - np.array(myxy)
     if (move == [-1,  0]).all(): score_dict["LEFT"] = move_score
     if (move == [ 1,  0]).all(): score_dict["RIGHT"] = move_score
@@ -382,4 +401,5 @@ def behave(self, game_state):
 
     # if the best damage in the last n turns suggest to place a bomb
 
-    return random_walk(arena)
+    return brick_walk(accmap, myxy) #random_walk(arena)
+
