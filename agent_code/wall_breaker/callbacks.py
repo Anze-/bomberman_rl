@@ -1,5 +1,6 @@
 from collections import deque
 from random import shuffle
+import copy
 
 import numpy as np
 
@@ -123,7 +124,7 @@ def recursive_accessible_area(myxy, mymap, counter, threshold=16):
     counter += 1
     x, y = myxy
     mymap[x, y] = 10
-    neighbours = mymap.copy()[x-1:x+2, y-1:y+2]
+    neighbours = copy.deepcopy(mymap)[x-1:x+2, y-1:y+2]
     #print(neighbours)
     neighbours[0, 0] = -1
     neighbours[0, 2] = -1
@@ -145,7 +146,7 @@ def recursive_accessible_area(myxy, mymap, counter, threshold=16):
     return mymap
 
 def open_area(myxy, gamemap):
-    mymap = gamemap.copy()
+    mymap = copy.deepcopy(gamemap)
     mymap = recursive_accessible_area(myxy, gamemap, 0, threshold=16)
     myarea = (mymap == 10).sum()
 
@@ -216,7 +217,7 @@ def act(self, game_state):
 
     # compute heuristics
     accmap, myarea = open_area(myxy, arena)
-    safemap = accmap.copy()
+    safemap = copy.deepcopy(accmap)
     damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
     print(safemap)
     self.damage_history = self.damage_history[1:]
@@ -231,6 +232,47 @@ def act(self, game_state):
 
     return walk
 
+
+
+def random_walk(arena):
+    score_dict = {
+            "BOMB": 0,
+            "UP": 0,
+            "DOWN": 0,
+            "RIGHT": 0,
+            "LEFT": 0,
+            "WAIT": 0,
+        }
+
+    # random walk
+    available_moves = []
+    if arena[x+1,y] == 0: available_moves.append("RIGHT")
+    if arena[x-1, y] == 0: available_moves.append("LEFT")
+    if arena[x, y-1] == 0: available_moves.append("UP")
+    if arena[x, y+1] == 0: available_moves.append("DOWN")
+    score_dict[np.random.choice(available_moves)] = 0.05
+    return score_dict
+
+
+def brick_walk(arena):
+    # find the shortest path to the best brick
+    score_dict = {
+            "BOMB": 0,
+            "UP": 0,
+            "DOWN": 0,
+            "RIGHT": 0,
+            "LEFT": 0,
+            "WAIT": 0,
+        }
+
+    # random walk
+    available_moves = []
+    if arena[x+1, y] == 0: available_moves.append("RIGHT")
+    if arena[x-1, y] == 0: available_moves.append("LEFT")
+    if arena[x, y-1] == 0: available_moves.append("UP")
+    if arena[x, y+1] == 0: available_moves.append("DOWN")
+    score_dict[np.random.choice(available_moves)] = 0.05
+    return score_dict
 
 
 def behave(self, game_state):
@@ -274,17 +316,17 @@ def behave(self, game_state):
 
     # compute heuristics
     accmap, myarea = open_area(myxy, arena)
-    safemap = accmap.copy()
+    safemap = copy.deepcopy(accmap)
     damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
     self.damage_history = self.damage_history[1:]
     self.damage_history = np.append(self.damage_history,damage)
     print(myarea, self.damage_history)
-    if damage == max(self.damage_history) and damage>1:
+    if damage == max(self.damage_history) and damage > 0:
         self.damage_history = self.damage_history*0+5
-
         return {
-            "BOMB": score(myarea, damage, safety),
+            "BOMB": get_score(myarea, damage, safety),
             "UP": 0,
+            "DOWN": 0,
             "RIGHT": 0,
             "LEFT": 0,
             "WAIT": 0,
@@ -292,11 +334,4 @@ def behave(self, game_state):
 
     # if the best damage in the last n turns suggest to place a bomb
 
-
-    return {
-            "BOMB": 0,
-            "UP": 0,
-            "RIGHT": 0,
-            "LEFT": 0,
-            "WAIT": 0,
-        }
+    return random_walk(arena)
