@@ -464,7 +464,6 @@ class BombeRLeWorld(GenericWorld):
             a.store_game_state(state)
             a.reset_game_events()
             if a.available_think_time > 0:
-                state["agent_net"] = a.genetic_agent_net
                 state['agent_weights'] = a.weights
                 a.act(state)
 

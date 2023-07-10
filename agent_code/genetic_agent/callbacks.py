@@ -77,8 +77,8 @@ def act(self, game_state):
         "coin_hunter": coin_hunter_action_scores,
     }
 
-    #for key in action_scores:
-    #    print(f"{key}: {action_scores[key]}")
+    for key in action_scores:
+        print(f"{key}: {action_scores[key]}")
 
     # for each agent, multiply each score on the dictionary by the weight
     for (agent, scores) in action_scores.items():
