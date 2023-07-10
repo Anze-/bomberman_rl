@@ -36,6 +36,7 @@ class Timekeeper:
     def wait(self):
         if not self.is_due():
             duration = self.next_time - time()
+            duration = max(0, duration)
             sleep(duration)
 
 
