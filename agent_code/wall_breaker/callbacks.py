@@ -229,9 +229,8 @@ def act(self, game_state):
 
     # if the best damage in the last n turns suggest to place a bomb
 
-    brick_walk(accmap, myxy)
-
-    return walk
+    # too slow!
+    return brick_walk(accmap, myxy)
 
 
 
