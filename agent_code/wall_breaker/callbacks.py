@@ -157,7 +157,7 @@ def recursive_accessible_area(myxy, mymap, counter, threshold=16):
 
 def open_area(myxy, gamemap):
     mymap = copy.deepcopy(gamemap)
-    mymap = recursive_accessible_area(myxy, gamemap, 0, threshold=16)
+    mymap = recursive_accessible_area(myxy, mymap, 0, threshold=16)
     myarea = (mymap == 10).sum()
 
     return mymap, myarea
