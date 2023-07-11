@@ -235,7 +235,8 @@ def act(self, game_state):
     #print(myarea,self.damage_history, get_score(myarea, damage, safety))
     if damage == max(self.damage_history) and damage>0:
         self.damage_history = self.damage_history*0+5
-        #print(damage,"=> BOMB",)
+        self.damage_history = [999,999,999,999,999]
+        print(damage,"=> BOMB",)
         return "BOMB"
 
     # if the best damage in the last n turns suggest to place a bomb
@@ -396,11 +397,12 @@ def behave(self, game_state):
     damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
     self.damage_history = self.damage_history[1:]
     self.damage_history = np.append(self.damage_history,damage)
-    #print(myarea, self.damage_history)
+    print(myarea, self.damage_history)
+
+    # if the best damage in the last n turns suggest to place a bomb
     if damage == max(self.damage_history) and damage > 0:
         self.damage_history = self.damage_history*0+5
-        #import pdb
-        #pdb.set_trace()
+        self.damage_history = [999,999,999,999,999,999,999]
         return {
             "WAIT": 0,
             "BOMB": get_score(myarea, damage, safety),
@@ -410,7 +412,17 @@ def behave(self, game_state):
             "LEFT": 0,
         }
 
-    # if the best damage in the last n turns suggest to place a bomb
-
-    return brick_walk(game_state, accmap, myxy) # random_walk(arena)
+    # do not suggest to go back on the bomb just placed
+    if 999 == max(self.damage_history):
+        return {
+            "WAIT": 0,
+            "BOMB": 0,
+            "UP": 0,
+            "DOWN": 0,
+            "RIGHT": 0,
+            "LEFT": 0,
+        }
+    else:
+        # this is the normal case, tell me how to go to the closest bomb
+        return brick_walk(game_state, accmap, myxy) # random_walk(arena)
 
