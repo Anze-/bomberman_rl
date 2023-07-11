@@ -20,6 +20,7 @@ def setup(self):
     # Fixed length FIFO queues to avoid repeating the same actions
     self.bomb_history = deque([], 5)
     self.coordinate_history = deque([], 20)
+    self.damage_history = np.array([5, 5, 5, 5, 5, 5])
     # While this timer is positive, agent will not hunt/attack opponents
     self.ignore_others_timer = 0
     self.current_round = 0
@@ -255,7 +256,7 @@ def act(self, game_state):
     self.logger.debug(f'Final State Value Function with value {state_value_matrix}')
     return best_action
 
-def behave(self, game_state: dict, params: dict) -> Dict[str, float]:
+def behave(self, game_state: dict) -> Dict[str, float]:
     
     # initialize output scores
     action_scores = {
@@ -302,6 +303,9 @@ def behave(self, game_state: dict, params: dict) -> Dict[str, float]:
     enemies=others
     arena_dim=arena.shape[0]
     state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * np.inf)
+
+    #Return score of each move equal to 0 if no enemies alive
+    if not others: return action_scores
 
     #fill manhattan distance matrix from enemies (0 where enemies are located)
     for o in others:
@@ -372,6 +376,7 @@ def behave(self, game_state: dict, params: dict) -> Dict[str, float]:
             true_goal=goal
     (x_goal,y_goal)=true_goal
     true_goal=(y_goal,x_goal)
+    self.logger.debug(f'GOAL ({true_goal})') 
     came_from, cost_so_far=a_star_search(state_value_matrix, start=(x,y), goal=(true_goal), self=self)
 
     path=reconstruct_path(came_from, start=(x,y), goal=true_goal)
@@ -440,7 +445,7 @@ def behave(self, game_state: dict, params: dict) -> Dict[str, float]:
     if action_scores['WAIT']<0: action_scores['WAIT']=0
 
     #add half of residual score to best action
-    action_scores[best_action]+=0.5*(1-action_scores[best_action])
-    print(action_scores)
+    #action_scores[best_action]+=0.5*(1-action_scores[best_action])
+    #print(action_scores)
     return action_scores
     

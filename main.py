@@ -9,7 +9,19 @@ from environment import BombeRLeWorld, GUI
 from fallbacks import pygame, LOADED_PYGAME
 from replay import ReplayWorld
 
+import neat
+import pickle
+
+GENERATION = 0
+
 ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
+
+WEIGHTS_DICT = {
+    "wall_breaker": 0.5,
+    "survival": 0.5,
+    "coin_hunter": 0.5,
+}
+AGENTS_WEIGHTS = [WEIGHTS_DICT for _ in range(4)]
 
 
 class Timekeeper:
@@ -26,11 +38,13 @@ class Timekeeper:
     def wait(self):
         if not self.is_due():
             duration = self.next_time - time()
+            duration = max(0, duration)
             sleep(duration)
 
 
 def world_controller(world, n_rounds, *,
-                     gui, every_step, turn_based, make_video, update_interval):
+                     gui, every_step, turn_based, make_video, update_interval,
+                     skip_end_round=False):
     if make_video and not gui.screenshot_dir.exists():
         gui.screenshot_dir.mkdir()
 
@@ -68,7 +82,7 @@ def world_controller(world, n_rounds, *,
 
             # Advances step (for turn based: only if user input is available)
             if world.running and not (turn_based and user_input is None):
-                world.do_step(user_input)
+                world.do_step(user_input, gui)
                 user_input = None
             else:
                 # Might want to wait
@@ -79,22 +93,23 @@ def world_controller(world, n_rounds, *,
             gui.make_video()
 
         # Render end screen until next round is queried
-        if gui is not None:
-            do_continue = False
-            while not do_continue:
-                render(True)
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        return
-                    elif event.type == pygame.KEYDOWN:
-                        key_pressed = event.key
-                        if key_pressed in s.INPUT_MAP or key_pressed in ESCAPE_KEYS:
-                            do_continue = True
+        if skip_end_round:
+            if gui is not None:
+                do_continue = False
+                while not do_continue:
+                    render(True)
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            return
+                        elif event.type == pygame.KEYDOWN:
+                            key_pressed = event.key
+                            if key_pressed in s.INPUT_MAP or key_pressed in ESCAPE_KEYS:
+                                do_continue = True
 
     world.end()
 
 
-def main(argv = None):
+def main(argv=None):
     parser = ArgumentParser()
 
     subparsers = parser.add_subparsers(dest='command_name', required=True)
@@ -103,25 +118,32 @@ def main(argv = None):
     play_parser = subparsers.add_parser("play")
     agent_group = play_parser.add_mutually_exclusive_group()
     agent_group.add_argument("--my-agent", type=str, help="Play agent of name ... against three rule_based_agents")
-    agent_group.add_argument("--agents", type=str, nargs="+", default=["rule_based_agent"] * s.MAX_AGENTS, help="Explicitly set the agent names in the game")
+    agent_group.add_argument("--agents", type=str, nargs="+", default=["rule_based_agent"] * s.MAX_AGENTS,
+                             help="Explicitly set the agent names in the game")
     play_parser.add_argument("--train", default=0, type=int, choices=[0, 1, 2, 3, 4],
                              help="First … agents should be set to training mode")
+    play_parser.add_argument("--train_genetic", default=False, action="store_true",
+                             help="Trains a genetic agent to play bomberman")
+
     play_parser.add_argument("--continue-without-training", default=False, action="store_true")
     # play_parser.add_argument("--single-process", default=False, action="store_true")
 
     play_parser.add_argument("--scenario", default="classic", choices=s.SCENARIOS)
 
-    play_parser.add_argument("--seed", type=int, help="Reset the world's random number generator to a known number for reproducibility")
+    play_parser.add_argument("--seed", type=int,
+                             help="Reset the world's random number generator to a known number for reproducibility")
 
     play_parser.add_argument("--n-rounds", type=int, default=10, help="How many rounds to play")
-    play_parser.add_argument("--save-replay", const=True, default=False, action='store', nargs='?', help='Store the game as .pt for a replay')
+    play_parser.add_argument("--save-replay", const=True, default=False, action='store', nargs='?',
+                             help='Store the game as .pt for a replay')
     play_parser.add_argument("--match-name", help="Give the match a name")
 
     play_parser.add_argument("--silence-errors", default=False, action="store_true", help="Ignore errors from agents")
 
     group = play_parser.add_mutually_exclusive_group()
     group.add_argument("--skip-frames", default=False, action="store_true", help="Play several steps per GUI render.")
-    group.add_argument("--no-gui", default=False, action="store_true", help="Deactivate the user interface and play as fast as possible.")
+    group.add_argument("--no-gui", default=False, action="store_true",
+                       help="Deactivate the user interface and play as fast as possible.")
 
     # Replay arguments
     replay_parser = subparsers.add_parser("replay")
@@ -134,7 +156,8 @@ def main(argv = None):
         sub.add_argument("--update-interval", type=float, default=0.1,
                          help="How often agents take steps (ignored without GUI)")
         sub.add_argument("--log-dir", default=os.path.dirname(os.path.abspath(__file__)) + "/logs")
-        sub.add_argument("--save-stats", const=True, default=False, action='store', nargs='?', help='Store the game results as .json for evaluation')
+        sub.add_argument("--save-stats", const=True, default=False, action='store', nargs='?',
+                         help='Store the game results as .json for evaluation')
 
         # Video?
         sub.add_argument("--make-video", const=True, default=False, action='store', nargs='?',
@@ -154,16 +177,23 @@ def main(argv = None):
     # Initialize environment and agents
     if args.command_name == "play":
         agents = []
-        if args.train == 0 and not args.continue_without_training:
-            args.continue_without_training = True
+        if args.train_genetic and args.my_agent != "genetic_agent":
+            raise ValueError("You can only train a genetic agent")
+
         if args.my_agent:
-            agents.append((args.my_agent, len(agents) < args.train))
-            args.agents = ["rule_based_agent"] * (s.MAX_AGENTS - 1)
+            if args.train_genetic:
+                # set 4 players as genetic agent
+                args.agents = [args.my_agent] * (s.MAX_AGENTS)
+            else:
+                # set 3 players as rule based agent and 1 chosen agent
+                agents.append((args.my_agent, len(agents) < args.train))
+                args.agents = ["rule_based_agent"] * (s.MAX_AGENTS - 1)
         for agent_name in args.agents:
             agents.append((agent_name, len(agents) < args.train))
 
         world = BombeRLeWorld(args, agents)
         every_step = not args.skip_frames
+
     elif args.command_name == "replay":
         world = ReplayWorld(args)
         every_step = True
@@ -175,9 +205,109 @@ def main(argv = None):
         gui = GUI(world)
     else:
         gui = None
-    world_controller(world, args.n_rounds,
-                     gui=gui, every_step=every_step, turn_based=args.turn_based,
-                     make_video=args.make_video, update_interval=args.update_interval)
+
+    def eval_genomes(genomes, config):
+        global GENERATION
+
+        if GENERATION % 2 == 0:
+            args.scenario = "classic"
+        else:
+            args.scenario = "coin-heaven"
+
+        GENERATION += 1
+
+        # each generation the world is reset
+        world = BombeRLeWorld(args, agents)
+        gui = None
+        if has_gui:
+            gui = GUI(world)
+
+        global AGENTS_WEIGHTS
+
+        i = 0
+        while i < len(genomes):
+            # creates 4 agents at a time and runs them
+            for index, elem in enumerate(genomes[i:i + 4]):
+                genome_id = elem[0]
+                genome = elem[1]
+
+                genome.fitness = 0
+                net = neat.nn.FeedForwardNetwork.create(genome, config)
+                world.agents[index].genetic_agent_net = net
+                world.agents[index].train_genetic = True
+                world.agents[index].genome = genome
+                world.agents[index].weights = AGENTS_WEIGHTS[index]
+
+            # execute the world
+            world_controller(world, args.n_rounds, skip_end_round=False,
+                             gui=gui, every_step=every_step, turn_based=args.turn_based,
+                             make_video=args.make_video, update_interval=args.update_interval)
+
+            # fitness is assigned to each agent when they pickup a coin (update_score inside agent.py)
+            # here we collect ge and fitness from each agent and assign it to the genome
+            # fitness is the score of the agent (the more coins it picks up, the higher the score)
+            # TODO: print fitness, it must be equal to the score
+            for g, agent in zip(genomes[i:i + 4], world.agents):
+                g[1].fitness = agent.genome.fitness
+                print(f"agent {agent.name} fitness: ", agent.genome.fitness)
+
+            # get scores of all agents at the end of the game (not round)
+            scores = [agent.total_score for agent in world.agents]
+            print(f"SCORES: {scores}")
+
+            for i, agent in enumerate(world.agents):
+                weights = agent.weights
+                print(f"agent{i} - wb:{weights['wall_breaker']} s:{weights['survival']} ch:{weights['coin_hunter']} - OLD WEIGHTS")
+                #FORSE DA SPOSTARE SU
+                output = agent.genetic_agent_net.activate(scores)
+                AGENTS_WEIGHTS[i] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+                agent.weights = AGENTS_WEIGHTS[i]
+                print(f"agent{i} - wb:{agent.weights['wall_breaker']} s:{agent.weights['survival']} ch:{agent.weights['coin_hunter']} - NEW WEIGHTS")
+
+            #TODO: check if weights are saved correctly
+
+            i += 4
+
+    if args.train_genetic:
+        config_file = './agent_code/genetic_agent/config-feedforward.txt'
+        config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                    neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                    config_file)
+
+        # Create the population, which is the top-level object for a NEAT run.
+        p = neat.Population(config)
+
+        # Add a stdout reporter to show progress in the terminal.
+        p.add_reporter(neat.StdOutReporter(True))
+        stats = neat.StatisticsReporter()
+        p.add_reporter(stats)
+        # p.add_reporter(neat.Checkpointer(5))
+
+        # Run for up to 50 generations.
+        winner = p.run(eval_genomes, 50)
+
+        # save best genome
+        with open('./agent_code/genetic_agent/winner.pkl', 'wb') as output:
+            pickle.dump(winner, output)
+
+        # show final stats
+        print('\nBest genome:\n{!s}'.format(winner))
+    else:
+        if args.my_agent == "genetic_agent":
+            # load winner network
+            with open("./agent_code/genetic_agent/winner.pkl", "rb") as f:
+                winner = pickle.load(f)
+
+            config_file = './agent_code/genetic_agent/config-feedforward.txt'
+            config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                                 neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                                 config_file)
+            winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
+            world.agents[0].genetic_agent_net = winner_net
+
+        world_controller(world, args.n_rounds, skip_end_round=True,
+                         gui=gui, every_step=every_step, turn_based=args.turn_based,
+                         make_video=args.make_video, update_interval=args.update_interval)
 
 
 if __name__ == '__main__':

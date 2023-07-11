@@ -28,8 +28,15 @@ class Coin(Item):
         self.collectable = collectable # whether the coin is collectable (not yet collected and revealed)
         self.picked = False            # whether the coin has been collected by some agent
 
+        self.rect = self.avatar.get_rect()
+        self.space_x = self.rect.centerx
+        self.space_y = self.rect.top
+
     def get_state(self):
         return self.x, self.y
+
+    def get_space_coords(self):
+        return self.space_x, self.space_y
 
 
 class Bomb(Item):
@@ -42,6 +49,10 @@ class Bomb(Item):
         self.owner = owner
         self.timer = timer
         self.power = power
+
+        #self.rect = self.DEFAULT_AVATARS.get_rect()
+        #self.space_x = self.rect.centerx
+        #self.space_y = self.rect.top
 
         self.active = True
         self.avatar = bomb_sprite
