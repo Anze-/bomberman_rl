@@ -87,6 +87,9 @@ def act(self, game_state):
         for key in scores:
             scores[key] *= weights[agent]
 
+    #TODO: get best action as linear combination, not the max
+    #    change agent net
+
     # get the action with the highest score
     max_score = 0
     max_action = None

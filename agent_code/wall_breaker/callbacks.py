@@ -395,8 +395,8 @@ def behave(self, game_state):
     #print(myarea, self.damage_history)
     if damage == max(self.damage_history) and damage > 0:
         self.damage_history = self.damage_history*0+5
-        import pdb
-        pdb.set_trace()
+        #import pdb
+        #pdb.set_trace()
         return {
             "WAIT": 0,
             "BOMB": get_score(myarea, damage, safety),
