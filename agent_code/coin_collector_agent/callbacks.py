@@ -171,4 +171,10 @@ def act(self, game_state):
     while len(action_ideas) > 0:
         a = action_ideas.pop()
         if a in valid_actions:
-            return a
+            # generate a random number between 0 and 1 using numpy
+            action_score = np.random.rand()
+            return a, action_score
+
+    # If no valid action could be found, wait
+    action_score = np.random.rand()
+    return "WAIT", action_score

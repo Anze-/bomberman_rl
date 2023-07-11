@@ -14,6 +14,8 @@ import events as e
 import settings as s
 from fallbacks import pygame
 
+import numpy as np
+
 AGENT_API = {
     "callbacks": {
         "setup": ["self"],
@@ -54,6 +56,7 @@ class Agent:
     """
 
     def __init__(self, agent_name, code_name, display_name, train: bool, backend: "AgentBackend", avatar_sprite_desc, bomb_sprite_desc):
+
         self.backend = backend
 
         # Load custom avatar or standard robot avatar of assigned color
@@ -82,6 +85,7 @@ class Agent:
         self.code_name = code_name
         self.display_name = display_name
         self.train = train
+        self.train_genetic = False
 
         self.total_score = 0
 
@@ -95,12 +99,21 @@ class Agent:
         self.events = None
         self.available_think_time = None
 
-        self.x = None
-        self.y = None
         self.bombs_left = None
 
         self.last_game_state = None
         self.last_action = None
+
+        # will be modified by the genetic algorithm
+        self.genetic_agent_net = None
+        self.genome = None
+
+        self.weights = {
+            "wall_breaker": 0.5,
+            "survival": 0.5,
+            "coin_hunter": 0.5,
+        }
+
 
         self.setup()
 
@@ -111,6 +124,15 @@ class Agent:
         if self.train:
             self.backend.send_event("setup_training")
             self.backend.get("setup_training")
+
+    # add actions to history and return true if there is the same action for 20 times
+    #def add_action(self, action):
+    #    self.history.append(action)
+    #    if len(self.history) > 50:
+    #        self.history.pop(0)
+    #    if len(set(self.history)) == 1:
+    #        return True
+    #   return False
 
     def __str__(self):
         return f"Agent {self.name} under control of {self.code_name}"
@@ -152,6 +174,9 @@ class Agent:
         self.score += delta
         self.total_score += delta
 
+        if self.genome is not None:
+            self.genome.fitness += delta
+
     def process_game_events(self, game_state):
         self.backend.send_event("game_events_occurred", self.last_game_state, self.last_action, game_state, self.events)
 
@@ -172,6 +197,7 @@ class Agent:
 
     def act(self, game_state):
         self.backend.send_event("act", game_state)
+
 
     def wait_for_act(self):
         action, think_time = self.backend.get_with_time("act")

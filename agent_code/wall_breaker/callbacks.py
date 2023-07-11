@@ -164,7 +164,7 @@ def open_area(myxy, gamemap):
 
 
 def get_score(myarea, damage, safety):
-    print("----")
+    #print("----")
     # fraction of the map accessible to the user
     strategic_control = myarea/256
     # fraction of the theoretical max damage
@@ -243,7 +243,7 @@ def act(self, game_state):
 
     # too slow!
     scd = brick_walk(game_state, accmap, myxy)
-    print(scd)
+    #print(scd)
     return list(scd.keys())[np.argmax(list(scd.values()))]
 
 
@@ -275,12 +275,12 @@ def best_bomb(accmap):
         if val == 10:
             safemap = copy.deepcopy(accmap)
             damage, safety, safemap = bomb_damage([x, y], accmap, safemap, r=3)
-            print(x,y,damage)
+            #print(x,y,damage)
             heumap[x, y] = damage
 
     best_bomb_xy = np.unravel_index(np.argmax(heumap), heumap.shape)
-    print(heumap)
-    print("best bomb xy: ",  best_bomb_xy)
+    #print(heumap)
+    #print("best bomb xy: ",  best_bomb_xy)
     return best_bomb_xy, heumap
 
 
@@ -293,11 +293,11 @@ def dijkstra(accmap, myxy, bombxy):
         if val == 10:
             try:
                 if accmap[x+1, y] == 10:
-                    print(f"{x},{y}", " <-> ", f"{x+1},{y}")
+                    #print(f"{x},{y}", " <-> ", f"{x+1},{y}")
                     graph.add_edge(f"{x},{y}", f"{x+1},{y}", 1)
                     graph.add_edge(f"{x+1},{y}", f"{x},{y}", 1)
                 if accmap[x, y+1] == 10:
-                    print(f"{x},{y}", " <-> ", f"{x},{y+1}")
+                    #print(f"{x},{y}", " <-> ", f"{x},{y+1}")
                     graph.add_edge(f"{x},{y}", f"{x},{y+1}", 1)
                     graph.add_edge(f"{x},{y+1}", f"{x},{y}", 1)
             except:
