@@ -233,16 +233,16 @@ def act(self, game_state):
     self.damage_history = self.damage_history[1:]
     self.damage_history = np.append(self.damage_history,damage)
     #print(myarea,self.damage_history, get_score(myarea, damage, safety))
-    if damage == max(self.damage_history) and damage>0:
-        self.damage_history = self.damage_history*0+5
-        self.damage_history = [999,999,999,999,999]
-        print(damage,"=> BOMB",)
-        return "BOMB"
+    #if damage == max(self.damage_history) and damage>0:
+    #    self.damage_history = self.damage_history*0+5
+    #    self.damage_history = [999,999,999,999,999]
+    #    print(damage,"=> BOMB",)
+    #    return "BOMB"
 
     # if the best damage in the last n turns suggest to place a bomb
 
     # too slow!
-    scd = brick_walk(game_state, accmap, myxy)
+    scd = brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy)
     print(scd)
     return list(scd.keys())[np.argmax(list(scd.values()))]
 
@@ -312,7 +312,7 @@ def dijkstra(accmap, myxy, bombxy):
     return path
 
 
-def brick_walk(game_state,accmap,myxy):
+def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
     score_dict = {
             "WAIT": 0,
             "BOMB": 0,
@@ -327,6 +327,14 @@ def brick_walk(game_state,accmap,myxy):
         return score_dict
 
     bombxy, heumap = best_bomb(accmap)
+
+    #we are on the target => drop the bomb
+    if bombxy==myxy:
+        damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
+        score_dict["BOMB"] = get_score(myarea, damage, safety)
+        self.damage_history = [999, 999, 999, 999, 999, 999, 999]
+        return score_dict
+
     best_damage = heumap.max()/12
 
     bestpath = dijkstra(accmap, myxy, bombxy)
@@ -400,17 +408,17 @@ def behave(self, game_state):
     print(myarea, self.damage_history)
 
     # if the best damage in the last n turns suggest to place a bomb
-    if damage == max(self.damage_history) and damage > 0:
-        self.damage_history = self.damage_history*0+5
-        self.damage_history = [999,999,999,999,999,999,999]
-        return {
-            "WAIT": 0,
-            "BOMB": get_score(myarea, damage, safety),
-            "UP": 0,
-            "DOWN": 0,
-            "RIGHT": 0,
-            "LEFT": 0,
-        }
+    #if damage == max(self.damage_history) and damage > 0:
+        # self.damage_history = self.damage_history*0+5
+        # self.damage_history = [999,999,999,999,999,999,999]
+        # return {
+        #     "WAIT": 0,
+        #     "BOMB": get_score(myarea, damage, safety),
+        #     "UP": 0,
+        #     "DOWN": 0,
+        #     "RIGHT": 0,
+        #     "LEFT": 0,
+        # }
 
     # do not suggest to go back on the bomb just placed
     if 999 == max(self.damage_history):
@@ -424,5 +432,5 @@ def behave(self, game_state):
         }
     else:
         # this is the normal case, tell me how to go to the closest bomb
-        return brick_walk(game_state, accmap, myxy) # random_walk(arena)
+        return brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy) # random_walk(arena)
 
