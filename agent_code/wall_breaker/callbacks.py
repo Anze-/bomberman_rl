@@ -421,6 +421,7 @@ def behave(self, game_state):
         # }
 
     # do not suggest to go back on the bomb just placed
+
     if 999 == max(self.damage_history):
         return {
             "WAIT": 0,
