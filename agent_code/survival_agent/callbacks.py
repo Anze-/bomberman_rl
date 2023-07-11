@@ -304,6 +304,9 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     arena_dim=arena.shape[0]
     state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * np.inf)
 
+    #Return score of each move equal to 0 if no enemies alive
+    if not others: return action_scores
+
     #fill manhattan distance matrix from enemies (0 where enemies are located)
     for o in others:
         temp_value_matrix=np.zeros((arena_dim, arena_dim))
@@ -365,19 +368,15 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     goals = np.where(state_value_matrix == np.amax(state_value_matrix))
     listOfGoals = list(zip(goals[0], goals[1]))
     dis=50
-
-    # DA MODIFICARE CON IL GOAL VERO
-    true_goal=(0,0)
-
     #Take the goal nearest to the agent
     for goal in listOfGoals:
         tempdis=heuristic((goal[1],goal[0]), (x,y))
         if (dis>tempdis):
             dis=tempdis
             true_goal=goal
-
     (x_goal,y_goal)=true_goal
     true_goal=(y_goal,x_goal)
+    self.logger.debug(f'GOAL ({true_goal})') 
     came_from, cost_so_far=a_star_search(state_value_matrix, start=(x,y), goal=(true_goal), self=self)
 
     path=reconstruct_path(came_from, start=(x,y), goal=true_goal)

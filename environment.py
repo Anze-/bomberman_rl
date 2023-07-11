@@ -465,7 +465,7 @@ class BombeRLeWorld(GenericWorld):
             a.reset_game_events()
             if a.available_think_time > 0:
                 state['agent_weights'] = a.weights
-                #state['agent_name'] = a.name
+                state['agent_name'] = a.name
                 a.act(state)
 
         # Give agents time to decide
