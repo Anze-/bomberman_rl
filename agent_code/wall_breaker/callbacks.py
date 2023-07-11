@@ -186,9 +186,9 @@ def get_score(myarea, damage, safety):
 
 
 def act(self, game_state):
-    # move randomly
     # calculate the player available game area
     # calculate the damage of the current position
+    # move towards the best position to place a bomb
     # if current position has good damage place a bomb
     """
     Called each game step to determine the agent's next action.
@@ -241,7 +241,7 @@ def act(self, game_state):
     # if the best damage in the last n turns suggest to place a bomb
 
     # too slow!
-    scd = brick_walk(accmap, myxy)
+    scd = brick_walk(game_state, accmap, myxy)
     print(scd)
     return list(scd.keys())[np.argmax(list(scd.values()))]
 
@@ -311,7 +311,7 @@ def dijkstra(accmap, myxy, bombxy):
     return path
 
 
-def brick_walk(accmap,myxy):
+def brick_walk(game_state,accmap,myxy):
     score_dict = {
             "WAIT": 0,
             "BOMB": 0,
@@ -338,6 +338,10 @@ def brick_walk(accmap,myxy):
         nextxy = myxy
     else:
         nextxy = list(map(int, bestpath[1].split(",")))
+
+        #check if the suggestion is immediately deadly
+        if game_state["dead_zones"](tuple(nextxy), game_state["step"] + 1):
+            return score_dict
     move = np.array(nextxy) - np.array(myxy)
     if (move == [-1,  0]).all(): score_dict["LEFT"] = move_score
     if (move == [ 1,  0]).all(): score_dict["RIGHT"] = move_score
@@ -408,5 +412,5 @@ def behave(self, game_state):
 
     # if the best damage in the last n turns suggest to place a bomb
 
-    return brick_walk(accmap, myxy) # random_walk(arena)
+    return brick_walk(game_state, accmap, myxy) # random_walk(arena)
 
