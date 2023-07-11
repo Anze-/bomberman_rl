@@ -242,7 +242,7 @@ def act(self, game_state):
 
     # too slow!
     scd = brick_walk(game_state, accmap, myxy)
-    print(scd)
+    #print(scd)
     return list(scd.keys())[np.argmax(list(scd.values()))]
 
 

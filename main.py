@@ -207,13 +207,14 @@ def main(argv=None):
         gui = None
 
     def eval_genomes(genomes, config):
-        # global GENERATION
+        global GENERATION
 
-        # if GENERATION % 2 == 0:
-        #    args.scenario = "classic"
-        # else:
-        #    args.scenario = "coin-heaven"
-        # GENERATION += 1
+        if GENERATION % 2 == 0:
+            args.scenario = "classic"
+        else:
+            args.scenario = "coin-heaven"
+
+        GENERATION += 1
 
         # each generation the world is reset
         world = BombeRLeWorld(args, agents)
@@ -242,23 +243,26 @@ def main(argv=None):
                              gui=gui, every_step=every_step, turn_based=args.turn_based,
                              make_video=args.make_video, update_interval=args.update_interval)
 
-            # collect ge and fitness
+            # fitness is assigned to each agent when they pickup a coin (update_score inside agent.py)
+            # here we collect ge and fitness from each agent and assign it to the genome
+            # fitness is the score of the agent (the more coins it picks up, the higher the score)
             # TODO: print fitness, it must be equal to the score
             for g, agent in zip(genomes[i:i + 4], world.agents):
                 g[1].fitness = agent.genome.fitness
-                # print(f"agent {agent.name} fitness: ", agent.genome.fitness)
+                print(f"agent {agent.name} fitness: ", agent.genome.fitness)
 
             # get scores of all agents at the end of the game (not round)
             scores = [agent.total_score for agent in world.agents]
+            print(f"SCORES: {scores}")
 
             for i, agent in enumerate(world.agents):
                 weights = agent.weights
-                # print(f"agent{i} - wb:{weights['wall_breaker']} s:{weights['survival']} ch:{weights['coin_hunter']} - OLD WEIGHTS")
+                print(f"agent{i} - wb:{weights['wall_breaker']} s:{weights['survival']} ch:{weights['coin_hunter']} - OLD WEIGHTS")
                 #FORSE DA SPOSTARE SU
                 output = agent.genetic_agent_net.activate(scores)
                 AGENTS_WEIGHTS[i] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
                 agent.weights = AGENTS_WEIGHTS[i]
-                # print(f"agent{i} - wb:{agent.weights['wall_breaker']} s:{agent.weights['survival']} ch:{agent.weights['coin_hunter']} - NEW WEIGHTS")
+                print(f"agent{i} - wb:{agent.weights['wall_breaker']} s:{agent.weights['survival']} ch:{agent.weights['coin_hunter']} - NEW WEIGHTS")
 
             #TODO: check if weights are saved correctly
 
@@ -279,7 +283,7 @@ def main(argv=None):
         p.add_reporter(stats)
         # p.add_reporter(neat.Checkpointer(5))
 
-        # Run for up to 10 generations.
+        # Run for up to 50 generations.
         winner = p.run(eval_genomes, 50)
 
         # save best genome
