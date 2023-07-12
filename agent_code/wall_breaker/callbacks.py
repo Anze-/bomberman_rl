@@ -109,10 +109,26 @@ def bomb_damage(bombxy, gamemap, safemap, r=3):
     #r is the bomb radius
     x, y = bombxy
     #print(x, y)
+    col = gamemap[x, max(0, y - r):min(16, y + r + 2)].flatten()
+    row = gamemap[max(0, x-r):max(16, x+r+2), y].flatten()
+
+    #do not count after bricks
+    col[3] = 747
+    row[3] = 747
+    csplits = np.split(col, np.where(col == -1)[0])
+    rsplits = np.split(row, np.where(row == -1)[0])
+    for el in csplits:
+        if 747 in el:
+            csplit = el
+
+    for el in rsplits:
+        if 747 in el:
+            rsplit = el
+
     damage = np.sum(
         1 == np.concatenate([
-            gamemap[x, max(0,y-r):min(16,y+r+2)].flatten(),
-             gamemap[max(0,x-r):max(16,x+r+2), y].flatten()
+            rsplit,
+            csplit,
         ])
     )
     safemap[x, max(0,y-r):min(16,y+r+2)] = -9
@@ -242,8 +258,8 @@ def act(self, game_state):
     # if the best damage in the last n turns suggest to place a bomb
 
     # too slow!
-    scd = brick_walk(game_state, accmap, myxy)
-    #print(scd)
+    scd = brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy)
+    # print(scd)
     return list(scd.keys())[np.argmax(list(scd.values()))]
 
 
@@ -260,7 +276,7 @@ def random_walk(arena):
 
     # random walk
     available_moves = []
-    if arena[x+1,y] == 0: available_moves.append("RIGHT")
+    if arena[x+1, y] == 0: available_moves.append("RIGHT")
     if arena[x-1, y] == 0: available_moves.append("LEFT")
     if arena[x, y-1] == 0: available_moves.append("UP")
     if arena[x, y+1] == 0: available_moves.append("DOWN")
@@ -330,6 +346,12 @@ def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
 
     #we are on the target => drop the bomb
     if bombxy==myxy:
+        print("=======")
+        print(myxy)
+        print(accmap)
+        print(heumap)
+        #import pdb
+        #pdb.set_trace()
         damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
         score_dict["BOMB"] = get_score(myarea, damage, safety)
         self.damage_history = [999, 999, 999, 999, 999, 999, 999]
