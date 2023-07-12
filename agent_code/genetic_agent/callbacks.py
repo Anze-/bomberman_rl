@@ -70,11 +70,9 @@ def act(self, game_state):
     }
     wall_breaker_action_scores = wall_breaker_agent.behave(self, game_state)
     coin_hunter_action_scores = coin_hunter_agent.behave(game_state, coin_hunter_params)
-    survival_agent_action_scores = wall_breaker_agent.behave(self, game_state)
+    survival_agent_action_scores = survival_agent.behave(self, game_state)
 
-    # if all scores are zero, return wait
-    if all(value == 0 for value in wall_breaker_action_scores.values()) and all(value == 0 for value in coin_hunter_action_scores.values()) and all(value == 0 for value in survival_agent_action_scores.values()):
-        return "WAIT"
+
 
     # the value of the dict is another dictionary with the action and the score
     action_scores = {
@@ -83,9 +81,14 @@ def act(self, game_state):
         "coin_hunter": coin_hunter_action_scores,
     }
 
+
     if name == "genetic_agent":
         # print(f"WEIGHTS: {weights}")
         print(f"ACTION SCORES: {pprint.pprint(action_scores)}")
+    
+        # if all scores are zero, return wait
+    if all(value == 0 for value in wall_breaker_action_scores.values()) and all(value == 0 for value in coin_hunter_action_scores.values()) and all(value == 0 for value in survival_agent_action_scores.values()):
+        return "WAIT"
 
     #for key in action_scores:
     #    if name == "genetic_agent_0":
@@ -118,9 +121,8 @@ def act(self, game_state):
     agent = None
     for key in action_summed_scores:
         if action_summed_scores[key] > max_score:
-            max_score = action_summed_scores[key]
-            max_action = key
-
+            max_score = action_summed_scores[key] 
+            max_action=key
     if name == "genetic_agent":        
         sys.path.append("agent_code")
         print(f"SUMMED ACTION SCORES: {pprint.pprint(action_summed_scores)}\n")
