@@ -1,9 +1,9 @@
 from collections import deque
 import numpy as np
 import sys
-
-sys.path.append("agent_code")
-
+# Pretty Print a Dictionary using pprint
+import pprint
+import random
 import agent_code.coin_hunter_agent.callbacks as coin_hunter_agent
 import agent_code.wall_breaker.callbacks as wall_breaker_agent
 import agent_code.rule_based_agent.callbacks as rule_based_agent
@@ -72,9 +72,7 @@ def act(self, game_state):
     coin_hunter_action_scores = coin_hunter_agent.behave(game_state, coin_hunter_params)
     survival_agent_action_scores = survival_agent.behave(self, game_state)
 
-    # if all scores are zero, return wait
-    if all(value == 0 for value in wall_breaker_action_scores.values()) and all(value == 0 for value in coin_hunter_action_scores.values()) and all(value == 0 for value in survival_agent_action_scores.values()):
-        return "WAIT"
+
 
     # the value of the dict is another dictionary with the action and the score
     action_scores = {
@@ -83,9 +81,14 @@ def act(self, game_state):
         "coin_hunter": coin_hunter_action_scores,
     }
 
-    if name == "genetic_agent_0":
-        print(f"WEIGHTS: {weights}")
-        print(f"ACTION SCORES: {action_scores}")
+
+    if name == "genetic_agent":
+        # print(f"WEIGHTS: {weights}")
+        print(f"ACTION SCORES: {pprint.pprint(action_scores)}")
+    
+        # if all scores are zero, return wait
+    if all(value == 0 for value in wall_breaker_action_scores.values()) and all(value == 0 for value in coin_hunter_action_scores.values()) and all(value == 0 for value in survival_agent_action_scores.values()):
+        return "WAIT"
 
     #for key in action_scores:
     #    if name == "genetic_agent_0":
@@ -96,8 +99,8 @@ def act(self, game_state):
         for key in scores:
             scores[key] *= weights[agent]
 
-    if name == "genetic_agent_0":
-        print(f"WEIGHTED ACTION SCORES: {action_scores}")
+    if name == "genetic_agent":
+        print(f"WEIGHTED ACTION SCORES: {pprint.pprint(action_scores)}")
 
     # sum the scores of each action for each agent
     action_summed_scores = {
@@ -118,12 +121,12 @@ def act(self, game_state):
     agent = None
     for key in action_summed_scores:
         if action_summed_scores[key] > max_score:
-            max_score = action_summed_scores[key]
-            max_action = key
-
-    if name == "genetic_agent_0":
-        print(f"SUMMED ACTION SCORES: {action_summed_scores}")
-        print(f"MAX ACTION: {max_action} with score {max_score}")
+            max_score = action_summed_scores[key] 
+            max_action=key
+    if name == "genetic_agent":        
+        sys.path.append("agent_code")
+        print(f"SUMMED ACTION SCORES: {pprint.pprint(action_summed_scores)}\n")
+        print(f"MAX ACTION: {max_action} with score {max_score}\n")
 
     # if all zeroz do wait
     #print(f"action {max_action} from agent {agent}")

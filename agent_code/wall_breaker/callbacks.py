@@ -346,10 +346,10 @@ def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
 
     #we are on the target => drop the bomb
     if bombxy==myxy:
-        print("=======")
-        print(myxy)
-        print(accmap)
-        print(heumap)
+        # print("=======")
+        # print(myxy)
+        # print(accmap)
+        # print(heumap)
         #import pdb
         #pdb.set_trace()
         damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
