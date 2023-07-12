@@ -405,7 +405,7 @@ def behave(self, game_state):
     damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
     self.damage_history = self.damage_history[1:]
     self.damage_history = np.append(self.damage_history,damage)
-    print(myarea, self.damage_history)
+    #print(myarea, self.damage_history)
 
     # if the best damage in the last n turns suggest to place a bomb
     #if damage == max(self.damage_history) and damage > 0:

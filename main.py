@@ -22,7 +22,7 @@ WEIGHTS_DICT = {
     "coin_hunter": 0.5,
 }
 AGENTS_WEIGHTS = [WEIGHTS_DICT for _ in range(4)]
-
+SCORES = [0 for _ in range(4)]
 
 class Timekeeper:
     def __init__(self, interval):
@@ -207,14 +207,14 @@ def main(argv=None):
         gui = None
 
     def eval_genomes(genomes, config):
-        global GENERATION
+        #global GENERATION
 
-        if GENERATION % 2 == 0:
-            args.scenario = "classic"
-        else:
-            args.scenario = "coin-heaven"
+        #if GENERATION % 2 == 0:
+        #    args.scenario = "classic"
+        #else:
+        #    args.scenario = "coin-heaven"
 
-        GENERATION += 1
+        #GENERATION += 1
 
         # each generation the world is reset
         world = BombeRLeWorld(args, agents)
@@ -222,7 +222,7 @@ def main(argv=None):
         if has_gui:
             gui = GUI(world)
 
-        global AGENTS_WEIGHTS
+        global AGENTS_WEIGHTS, SCORES
 
         i = 0
         while i < len(genomes):
@@ -236,35 +236,35 @@ def main(argv=None):
                 world.agents[index].genetic_agent_net = net
                 world.agents[index].train_genetic = True
                 world.agents[index].genome = genome
+                #print(f"agent {world.agents[index].name} - {AGENTS_WEIGHTS[index]} - OLD WEIGHTS")
+                output = world.agents[index].genetic_agent_net.activate(SCORES)
+                AGENTS_WEIGHTS[index] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
                 world.agents[index].weights = AGENTS_WEIGHTS[index]
+                #print(f"agent {world.agents[index].name} - {AGENTS_WEIGHTS[index]} - NEW WEIGHTS")
 
             # execute the world
             world_controller(world, args.n_rounds, skip_end_round=False,
                              gui=gui, every_step=every_step, turn_based=args.turn_based,
                              make_video=args.make_video, update_interval=args.update_interval)
 
-            # fitness is assigned to each agent when they pickup a coin (update_score inside agent.py)
+            # get scores of all agents at the end of the game (not round)
+            SCORES = [agent.total_score for agent in world.agents]
+
+
+            # fitness is assigned to each agent when they pickup a coin (update_score inside agent\.py)
             # here we collect ge and fitness from each agent and assign it to the genome
             # fitness is the score of the agent (the more coins it picks up, the higher the score)
-            # TODO: print fitness, it must be equal to the score
             for g, agent in zip(genomes[i:i + 4], world.agents):
                 g[1].fitness = agent.genome.fitness
-                print(f"agent {agent.name} fitness: ", agent.genome.fitness)
 
-            # get scores of all agents at the end of the game (not round)
-            scores = [agent.total_score for agent in world.agents]
-            print(f"SCORES: {scores}")
 
-            for i, agent in enumerate(world.agents):
-                weights = agent.weights
-                print(f"agent{i} - wb:{weights['wall_breaker']} s:{weights['survival']} ch:{weights['coin_hunter']} - OLD WEIGHTS")
-                #FORSE DA SPOSTARE SU
-                output = agent.genetic_agent_net.activate(scores)
-                AGENTS_WEIGHTS[i] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
-                agent.weights = AGENTS_WEIGHTS[i]
-                print(f"agent{i} - wb:{agent.weights['wall_breaker']} s:{agent.weights['survival']} ch:{agent.weights['coin_hunter']} - NEW WEIGHTS")
-
-            #TODO: check if weights are saved correctly
+            #for i, agent in enumerate(world.agents):
+            #    weights = agent.weights
+            #    print(f"agent{i} - wb:{weights['wall_breaker']} s:{weights['survival']} ch:{weights['coin_hunter']} - OLD WEIGHTS")
+            #    #output = agent.genetic_agent_net.activate(SCORES)
+            #    AGENTS_WEIGHTS[i] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+            #    agent.weights = AGENTS_WEIGHTS[i]
+            #    print(f"agent{i} - wb:{agent.weights['wall_breaker']} s:{agent.weights['survival']} ch:{agent.weights['coin_hunter']} - NEW WEIGHTS")
 
             i += 4
 
