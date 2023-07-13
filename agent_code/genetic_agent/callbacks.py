@@ -125,7 +125,7 @@ def act(self, game_state):
 
     #for key in action_scores:
     #    if name == "genetic_agent_0":
-    #    print(f"genetic_agent_0 {key}: {action_scores[key]}")
+    #        print(f"genetic_agent_0 {key}: {action_scores[key]}")
 
     # for each agent, multiply each score on the dictionary by the weight
     for (agent, scores) in action_scores.items():
@@ -151,7 +151,6 @@ def act(self, game_state):
     # get the action with the highest score
     max_score = 0
     max_action = None
-    agent = None
     for key in action_summed_scores:
         if action_summed_scores[key] > max_score:
             max_score = action_summed_scores[key]
@@ -161,8 +160,9 @@ def act(self, game_state):
         #print(f"SUMMED ACTION SCORES: {action_summed_scores}")
         #print(f"MAX ACTION: {max_action} with score {max_score}")
 
-    # if all zeroz do wait
-    #print(f"action {max_action} from agent {agent}")
+    #if name == "genetic_agent_0":
+    #    print(f"action {max_action}")
+
     self.action_history.append(max_action)
     #action = check_if_actions_are_repeated(self, max_action)
     return max_action

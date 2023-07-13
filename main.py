@@ -13,10 +13,10 @@ import neat
 import pickle
 
 GENERATION = 0
-
 ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
-
 AGENTS = []
+BEST_FITNESS = 0
+BEST_WEIGHTS = {}
 
 
 class Timekeeper:
@@ -176,13 +176,13 @@ def main(argv=None):
             raise ValueError("You can only train a genetic agent")
 
         if args.my_agent:
-            if args.train_genetic:
-                # set 4 players as genetic agent
-                args.agents = [args.my_agent] * (s.MAX_AGENTS)
-            else:
-                # set 3 players as rule based agent and 1 chosen agent
-                agents.append((args.my_agent, len(agents) < args.train))
-                args.agents = ["rule_based_agent"] * (s.MAX_AGENTS - 1)
+            #if args.train_genetic:
+            #    # set 4 players as genetic agent
+            #    args.agents = [args.my_agent] * (s.MAX_AGENTS)
+            #else:
+            # set 3 players as rule based agent and 1 chosen agent
+            agents.append((args.my_agent, len(agents) < args.train))
+            args.agents = ["rule_based_agent"] * (s.MAX_AGENTS - 1)
         for agent_name in args.agents:
             agents.append((agent_name, len(agents) < args.train))
 
@@ -203,7 +203,7 @@ def main(argv=None):
 
     def eval_genomes(genomes, config):
 
-        global AGENTS
+        global AGENTS, BEST_FITNESS, BEST_WEIGHTS
 
         genomes_index = 0
         agent_index = 0  # index of the agent in AGENTS
@@ -218,25 +218,22 @@ def main(argv=None):
             stop = genomes_index + 4
 
             # creates 4 agents at a time and runs them
-            for index, elem in enumerate(genomes[start:stop]):
-                genome_id = elem[0]
-                genome = elem[1]
+            #for index, elem in enumerate(genomes[start:stop]):
+            genome_id = genomes[genomes_index][0]
+            genome = genomes[genomes_index][1]
 
-                genome.fitness = 0
-                net = neat.nn.FeedForwardNetwork.create(genome, config)
-                world.agents[index].genetic_agent_net = net
-                world.agents[index].train_genetic = True
-                world.agents[index].genome = genome
-                # print(f"agent {world.agents[index].name} - {AGENTS_WEIGHTS[index]} - OLD WEIGHTS")
+            genome.fitness = 0
+            net = neat.nn.FeedForwardNetwork.create(genome, config)
+            world.agents[0].genetic_agent_net = net
+            world.agents[0].train_genetic = True
+            world.agents[0].genome = genome
 
-                scores = AGENTS[agent_index]["s"]
+            scores = AGENTS[agent_index]["s"]
 
-                output = world.agents[index].genetic_agent_net.activate(scores)
-                AGENTS[agent_index]["w"] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
-                world.agents[index].weights = AGENTS[agent_index]["w"]
-                # print(f"agent {world.agents[index].name} - {AGENTS_WEIGHTS[index]} - NEW WEIGHTS")
+            output = world.agents[0].genetic_agent_net.activate(scores)
 
-                agent_index += 1
+            AGENTS[agent_index]["w"] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+            world.agents[0].weights = AGENTS[agent_index]["w"]
 
             # execute the world
             world_controller(world, args.n_rounds, skip_end_round=False,
@@ -244,10 +241,14 @@ def main(argv=None):
                              make_video=args.make_video, update_interval=args.update_interval)
 
             # get scores of all agents at the end of the game (not round)
-            scores = [agent.total_score for agent in world.agents]
+            #scores = [agent.total_score for agent in world.agents]
+            total_scores = [agent.total_score for agent in world.agents]
 
-            for k in range(agent_index - 4, agent_index):
-                AGENTS[k]["s"] = scores
+            scores = [world.agents[0].total_score]
+
+            #for k in range(agent_index - 4, agent_index):
+            AGENTS[agent_index]["s"] = scores
+            agent_index += 1
 
             for elem in AGENTS:
                 print(elem)
@@ -255,10 +256,16 @@ def main(argv=None):
             # fitness is assigned to each agent when they pickup a coin (update_score inside agent\.py)
             # here we collect ge and fitness from each agent and assign it to the genome
             # fitness is the score of the agent (the more coins it picks up, the higher the score)
-            for g, agent in zip(genomes[start:stop], world.agents):
-                g[1].fitness = agent.genome.fitness
+            # for g, agent in zip(genomes[start:stop], world.agents):
+            genomes[genomes_index][1].fitness = world.agents[0].genome.fitness
 
-            genomes_index += 4
+            if world.agents[0].genome.fitness > BEST_FITNESS:
+                BEST_FITNESS = world.agents[0].genome.fitness
+                BEST_WEIGHTS = world.agents[0].weights
+                print("New best weights found: ", BEST_WEIGHTS)
+
+            genomes_index += 1
+
         print("Generation finished")
 
     if args.train_genetic:
@@ -267,11 +274,9 @@ def main(argv=None):
                                     neat.DefaultSpeciesSet, neat.DefaultStagnation,
                                     config_file)
         pop_size = config.pop_size
-        if pop_size % 4 != 0:
-            raise ValueError("Population size must be divisible by 4, check config-feedforward.txt")
 
 
-        global AGENTS
+        global AGENTS, BEST_WEIGHTS
 
         for _ in range(pop_size):
             AGENT_DICT = {
@@ -280,7 +285,7 @@ def main(argv=None):
                     "survival": 0.5,
                     "coin_hunter": 0.5,
                 },
-                "s": [0, 0, 0, 0]
+                "s": [0]
             }
             AGENTS.append(AGENT_DICT)
 
@@ -293,27 +298,21 @@ def main(argv=None):
         p.add_reporter(stats)
         # p.add_reporter(neat.Checkpointer(5))
 
-        # Run for up to 50 generations.
+        # Run for up to 10 generations.
         winner = p.run(eval_genomes, 10)
 
-        # save best genome
-        with open('./agent_code/genetic_agent/winner.pkl', 'wb') as output:
-            pickle.dump(winner, output)
+        with open("./agent_code/genetic_agent/winner.pkl", "wb") as f:
+            pickle.dump(BEST_WEIGHTS, f)
 
         # show final stats
         print('\nBest genome:\n{!s}'.format(winner))
     else:
         if args.my_agent == "genetic_agent":
-            # load winner network
+            # load winner weights
             with open("./agent_code/genetic_agent/winner.pkl", "rb") as f:
                 winner = pickle.load(f)
 
-            config_file = './agent_code/genetic_agent/config-feedforward.txt'
-            config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                                 neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                                 config_file)
-            winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
-            world.agents[0].genetic_agent_net = winner_net
+            world.agents[0].weights = winner
 
         world_controller(world, args.n_rounds, skip_end_round=True,
                          gui=gui, every_step=every_step, turn_based=args.turn_based,
