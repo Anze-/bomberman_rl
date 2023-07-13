@@ -16,13 +16,8 @@ GENERATION = 0
 
 ESCAPE_KEYS = (pygame.K_q, pygame.K_ESCAPE)
 
-WEIGHTS_DICT = {
-    "wall_breaker": 0.5,
-    "survival": 0.5,
-    "coin_hunter": 0.5,
-}
-AGENTS_WEIGHTS = [WEIGHTS_DICT for _ in range(4)]
-SCORES = [0 for _ in range(4)]
+AGENTS = []
+
 
 class Timekeeper:
     def __init__(self, interval):
@@ -207,27 +202,23 @@ def main(argv=None):
         gui = None
 
     def eval_genomes(genomes, config):
-        #global GENERATION
 
-        #if GENERATION % 2 == 0:
-        #    args.scenario = "classic"
-        #else:
-        #    args.scenario = "coin-heaven"
+        global AGENTS
 
-        #GENERATION += 1
+        genomes_index = 0
+        agent_index = 0  # index of the agent in AGENTS
+        while genomes_index < len(genomes):
+            # each generation the world is reset
+            world = BombeRLeWorld(args, agents)
+            gui = None
+            if has_gui:
+                gui = GUI(world)
 
-        # each generation the world is reset
-        world = BombeRLeWorld(args, agents)
-        gui = None
-        if has_gui:
-            gui = GUI(world)
+            start = genomes_index
+            stop = genomes_index + 4
 
-        global AGENTS_WEIGHTS, SCORES
-
-        i = 0
-        while i < len(genomes):
             # creates 4 agents at a time and runs them
-            for index, elem in enumerate(genomes[i:i + 4]):
+            for index, elem in enumerate(genomes[start:stop]):
                 genome_id = elem[0]
                 genome = elem[1]
 
@@ -236,11 +227,16 @@ def main(argv=None):
                 world.agents[index].genetic_agent_net = net
                 world.agents[index].train_genetic = True
                 world.agents[index].genome = genome
-                #print(f"agent {world.agents[index].name} - {AGENTS_WEIGHTS[index]} - OLD WEIGHTS")
-                output = world.agents[index].genetic_agent_net.activate(SCORES)
-                AGENTS_WEIGHTS[index] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
-                world.agents[index].weights = AGENTS_WEIGHTS[index]
-                #print(f"agent {world.agents[index].name} - {AGENTS_WEIGHTS[index]} - NEW WEIGHTS")
+                # print(f"agent {world.agents[index].name} - {AGENTS_WEIGHTS[index]} - OLD WEIGHTS")
+
+                scores = AGENTS[agent_index]["s"]
+
+                output = world.agents[index].genetic_agent_net.activate(scores)
+                AGENTS[agent_index]["w"] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+                world.agents[index].weights = AGENTS[agent_index]["w"]
+                # print(f"agent {world.agents[index].name} - {AGENTS_WEIGHTS[index]} - NEW WEIGHTS")
+
+                agent_index += 1
 
             # execute the world
             world_controller(world, args.n_rounds, skip_end_round=False,
@@ -248,31 +244,45 @@ def main(argv=None):
                              make_video=args.make_video, update_interval=args.update_interval)
 
             # get scores of all agents at the end of the game (not round)
-            SCORES = [agent.total_score for agent in world.agents]
+            scores = [agent.total_score for agent in world.agents]
 
+            for k in range(agent_index - 4, agent_index):
+                AGENTS[k]["s"] = scores
+
+            for elem in AGENTS:
+                print(elem)
 
             # fitness is assigned to each agent when they pickup a coin (update_score inside agent\.py)
             # here we collect ge and fitness from each agent and assign it to the genome
             # fitness is the score of the agent (the more coins it picks up, the higher the score)
-            for g, agent in zip(genomes[i:i + 4], world.agents):
+            for g, agent in zip(genomes[start:stop], world.agents):
                 g[1].fitness = agent.genome.fitness
 
-
-            #for i, agent in enumerate(world.agents):
-            #    weights = agent.weights
-            #    print(f"agent{i} - wb:{weights['wall_breaker']} s:{weights['survival']} ch:{weights['coin_hunter']} - OLD WEIGHTS")
-            #    #output = agent.genetic_agent_net.activate(SCORES)
-            #    AGENTS_WEIGHTS[i] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
-            #    agent.weights = AGENTS_WEIGHTS[i]
-            #    print(f"agent{i} - wb:{agent.weights['wall_breaker']} s:{agent.weights['survival']} ch:{agent.weights['coin_hunter']} - NEW WEIGHTS")
-
-            i += 4
+            genomes_index += 4
+        print("Generation finished")
 
     if args.train_genetic:
         config_file = './agent_code/genetic_agent/config-feedforward.txt'
         config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction,
                                     neat.DefaultSpeciesSet, neat.DefaultStagnation,
                                     config_file)
+        pop_size = config.pop_size
+        if pop_size % 4 != 0:
+            raise ValueError("Population size must be divisible by 4, check config-feedforward.txt")
+
+
+        global AGENTS
+
+        for _ in range(pop_size):
+            AGENT_DICT = {
+                "w": {
+                    "wall_breaker": 0.5,
+                    "survival": 0.5,
+                    "coin_hunter": 0.5,
+                },
+                "s": [0, 0, 0, 0]
+            }
+            AGENTS.append(AGENT_DICT)
 
         # Create the population, which is the top-level object for a NEAT run.
         p = neat.Population(config)
@@ -284,7 +294,7 @@ def main(argv=None):
         # p.add_reporter(neat.Checkpointer(5))
 
         # Run for up to 50 generations.
-        winner = p.run(eval_genomes, 50)
+        winner = p.run(eval_genomes, 10)
 
         # save best genome
         with open('./agent_code/genetic_agent/winner.pkl', 'wb') as output:

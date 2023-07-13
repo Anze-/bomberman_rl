@@ -2,8 +2,8 @@
 [NEAT]
 fitness_criterion     = max
 fitness_threshold     = 1000
-# no more than 4 in pop size
-pop_size              = 4
+#only multiple of 4 allowed
+pop_size              = 16
 reset_on_extinction   = False
 
 [DefaultGenome]

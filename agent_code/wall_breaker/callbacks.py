@@ -144,7 +144,7 @@ def bomb_damage(bombxy, gamemap, safemap, r=3):
         damage = 0
 
     return damage, safety, safemap
-def recursive_accessible_area(myxy, mymap, counter, threshold=16):
+def recursive_accessible_area(myxy, mymap, counter, threshold=100):
     if counter>threshold:
         return mymap
     counter += 1
@@ -173,7 +173,7 @@ def recursive_accessible_area(myxy, mymap, counter, threshold=16):
 
 def open_area(myxy, gamemap):
     mymap = copy.deepcopy(gamemap)
-    mymap = recursive_accessible_area(myxy, mymap, 0, threshold=16)
+    mymap = recursive_accessible_area(myxy, mymap, 0, threshold=100)
     myarea = (mymap == 10).sum()
 
     return mymap, myarea

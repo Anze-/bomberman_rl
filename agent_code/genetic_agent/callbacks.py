@@ -1,14 +1,12 @@
 from collections import deque
 import numpy as np
-import sys
-# Pretty Print a Dictionary using pprint
-import pprint
-import random
+
 import agent_code.coin_hunter_agent.callbacks as coin_hunter_agent
 import agent_code.wall_breaker.callbacks as wall_breaker_agent
 import agent_code.rule_based_agent.callbacks as rule_based_agent
 import agent_code.survival_agent.callbacks as survival_agent
 
+HISTORY_LENGTH = 30
 
 def setup(self):
     """Called once before a set of games to initialize data structures etc.
@@ -29,12 +27,46 @@ def setup(self):
     self.current_round = 0
     self.damage_history = np.array([5, 5, 5, 5, 5, 5])
 
+    # last HISTORY_LENGTH-step action history
+    self.action_history = deque([], HISTORY_LENGTH)
+
 
 def reset_self(self):
     self.bomb_history = deque([], 5)
     self.coordinate_history = deque([], 20)
     # While this timer is positive, agent will not hunt/attack opponents
     self.ignore_others_timer = 0
+    self.action_history = deque([], HISTORY_LENGTH)
+
+
+def check_if_actions_are_repeated(self, action):
+    """
+    Checks if two actions are repeated in the last HISTORY_LENGTH steps
+    :param self:
+    :param action: next action to be taken
+    :return: random action if repeated, else action
+    """
+
+    if len(self.action_history) < HISTORY_LENGTH:
+        return action
+
+    # do not include the bomb in possible actions to return
+    possible_actions_list = ["UP", "RIGHT", "DOWN", "LEFT", "WAIT"]
+
+    s = set(self.action_history)
+    if len(s) == 2:
+        count_1 = self.action_history.count(list(s)[0])
+        count_2 = self.action_history.count(list(s)[1])
+        if count_1 == count_2:
+            print("REPEATED ACTION")
+
+            # exclude list(s)[0] and list(s)[1] from possible actions
+            possible_actions_list.remove(list(s)[0])
+            possible_actions_list.remove(list(s)[1])
+
+            return np.random.choice(possible_actions_list)
+
+    return action
 
 
 def act(self, game_state):
@@ -72,21 +104,24 @@ def act(self, game_state):
     coin_hunter_action_scores = coin_hunter_agent.behave(game_state, coin_hunter_params)
     survival_agent_action_scores = survival_agent.behave(self, game_state)
 
-    # the value of the dict is another dictionary with the action and the score
+    # if all scores are zero, return wait
+    #if all(value == 0 for value in wall_breaker_action_scores.values()) \
+    #        and all(value == 0 for value in coin_hunter_action_scores.values()) \
+    #        and all(value == 0 for value in survival_agent_action_scores.values()):
+    #    self.action_history.append("WAIT")
+    #    action = check_if_actions_are_repeated(self, "WAIT")
+    #    return action
+
+
     action_scores = {
         "wall_breaker": wall_breaker_action_scores,
         "survival": survival_agent_action_scores,
         "coin_hunter": coin_hunter_action_scores,
     }
 
-
-    if name == "genetic_agent":
-        # print(f"WEIGHTS: {weights}")
-        print(f"ACTION SCORES: {pprint.pprint(action_scores)}")
-    
-    #     # if all scores are zero, return wait
-    # if all(value == 0 for value in wall_breaker_action_scores.values()) and all(value == 0 for value in coin_hunter_action_scores.values()) and all(value == 0 for value in survival_agent_action_scores.values()):
-    #     return "WAIT"
+    #if name == "genetic_agent_0":
+    #    print(f"WEIGHTS: {weights}")
+    #    print(f"ACTION SCORES: {action_scores}")
 
     #for key in action_scores:
     #    if name == "genetic_agent_0":
@@ -97,8 +132,8 @@ def act(self, game_state):
         for key in scores:
             scores[key] *= weights[agent]
 
-    if name == "genetic_agent":
-        print(f"WEIGHTED ACTION SCORES: {pprint.pprint(action_scores)}")
+    #if name == "genetic_agent_0":
+    #    print(f"WEIGHTED ACTION SCORES: {action_scores}")
 
     # sum the scores of each action for each agent
     action_summed_scores = {
@@ -119,13 +154,15 @@ def act(self, game_state):
     agent = None
     for key in action_summed_scores:
         if action_summed_scores[key] > max_score:
-            max_score = action_summed_scores[key] 
+            max_score = action_summed_scores[key]
             max_action = key
-    if name == "genetic_agent":        
-        sys.path.append("agent_code")
-        print(f"SUMMED ACTION SCORES: {pprint.pprint(action_summed_scores)}\n")
-        print(f"MAX ACTION: {max_action} with score {max_score}\n")
+
+    #if name == "genetic_agent_0":
+        #print(f"SUMMED ACTION SCORES: {action_summed_scores}")
+        #print(f"MAX ACTION: {max_action} with score {max_score}")
 
     # if all zeroz do wait
     #print(f"action {max_action} from agent {agent}")
+    self.action_history.append(max_action)
+    #action = check_if_actions_are_repeated(self, max_action)
     return max_action
