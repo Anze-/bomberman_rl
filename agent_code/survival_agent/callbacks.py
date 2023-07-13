@@ -333,6 +333,8 @@ def behave(self, game_state: dict) -> Dict[str, float]:
 
     #Return score of each move equal to 0 if no enemies alive
     if not others: 
+        if not bombs:
+            return action_scores
         state_value_matrix = state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * 20)
 
         #put 0 where we have walls and crafts (non legal position)
