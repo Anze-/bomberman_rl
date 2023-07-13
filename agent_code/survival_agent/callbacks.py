@@ -68,10 +68,12 @@ def neighbors(node, grid):
     neigh=[]
     (x,y)=node
     for i in [-1, 1]:
-        node1= (x+i,y)
-        node2= (x,y+i)
-        if isValid(grid,node1): neigh.append(node1)
-        if isValid(grid,node2): neigh.append(node2)
+        node1 = (x+i,y)
+        node2 = (x,y+i)
+        if isValid(grid,node1):
+            neigh.append((node1))
+        if isValid(grid,node2): 
+            neigh.append((node2))
     return neigh
 
 def reconstruct_path(came_from, start, goal):
@@ -85,6 +87,21 @@ def reconstruct_path(came_from, start, goal):
     #path.append(start) # optional
     path.reverse() # optional
     return path
+
+def reacheable_nodes(grid, start, self):
+    reacheable_grid=np.zeros((grid.shape[0],grid.shape[0]))
+    frontier=[start]
+    visited=[]
+    while frontier:
+        current= frontier.pop(0)
+        visited.append(current)
+        reacheable_grid[current[1],current[0]]=1
+        neigh=neighbors(current, grid)
+        for n in neigh:
+            if n not in visited and n not in frontier:
+                frontier.append(n)
+    return reacheable_grid
+
 
 def a_star_search(grid, start, goal, self):
     frontier = PriorityQueue()
@@ -157,25 +174,39 @@ def act(self, game_state):
     arena_dim=arena.shape[0]
     state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * np.inf)
 
-    #fill manhattan distance matrix from enemies (0 where enemies are located)
-    for o in others:
-        temp_value_matrix=np.zeros((arena_dim, arena_dim))
-        for i in range(0, arena.shape[0]):
-            for j in range(0, arena.shape[0]):
-                temp_value_matrix[i,j]=temp_value_matrix[i,j]+ abs(i - o[1]) + abs(j - o[0])
-        state_value_matrix=np.minimum(state_value_matrix,temp_value_matrix)
+    if not others: 
+        state_value_matrix = state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * 20)
 
-    #add 1 for each legal movement executable from cell i,j
-    #TODO: apply this only if cell value >=1 (so not in bomb range) and pt it at the end
-    for i in range(0, arena.shape[0]-1):
-            for j in range(0, arena.shape[0]-1):
-                leg_move=0
-                if(state_value_matrix[i,j]!=0):
-                    if(state_value_matrix[i-1,j]!=0): leg_move+=1
-                    if(state_value_matrix[i+1,j]!=0): leg_move+=1
-                    if(state_value_matrix[i,j-1]!=0): leg_move+=1
-                    if(state_value_matrix[i,j+1]!=0): leg_move+=1
-                state_value_matrix[i,j]+=leg_move    
+        #put 0 where we have walls and crafts (non legal position)
+        free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
+        state_value_matrix=np.multiply(state_value_matrix, free_matrix)
+    else:
+        #fill manhattan distance matrix from enemies (0 where enemies are located)
+        for o in others:
+            temp_value_matrix=np.zeros((arena_dim, arena_dim))
+            for i in range(0, arena.shape[0]):
+                for j in range(0, arena.shape[0]):
+                    temp_value_matrix[i,j]=temp_value_matrix[i,j]+ abs(i - o[1]) + abs(j - o[0])
+            state_value_matrix=np.minimum(state_value_matrix,temp_value_matrix)
+        
+        self.logger.debug(f'Fill with manhattan from enemies distance matrix: \n{state_value_matrix}')
+
+        #put 0 where we have walls and crafts (non legal position)
+        free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
+        state_value_matrix=np.multiply(state_value_matrix, free_matrix)
+
+        #add 1 for each legal movement executable from cell i,j
+        #TODO: apply this only if cell value >=1 (so not in bomb range) and pt it at the end
+        
+        for i in range(0, arena.shape[0]-1):
+                for j in range(0, arena.shape[0]-1):
+                    leg_move=0
+                    if(state_value_matrix[i,j]!=0):
+                        if(state_value_matrix[i-1,j]!=0): leg_move+=1
+                        if(state_value_matrix[i+1,j]!=0): leg_move+=1
+                        if(state_value_matrix[i,j-1]!=0): leg_move+=1
+                        if(state_value_matrix[i,j+1]!=0): leg_move+=1
+                    state_value_matrix[i,j]+=leg_move    
 
     #put 0.3*t_until_expl and 0 in bomb range and bomb place if bomb closer then 8 cells to agent
     for (xb, yb), t in bombs:
@@ -184,10 +215,10 @@ def act(self, game_state):
             blast=get_blast_coords(xb, yb, 3, arena)
             self.logger.debug(f'Bomb  ({bombs}), range {blast} ') 
             for (i, j) in blast:
-                state_value_matrix[j, i]=0.3*t
-    #put 0 where we have walls and crafts (non legal position)
-    free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
-    state_value_matrix=np.multiply(state_value_matrix, free_matrix)
+                if state_value_matrix[j, i]!=0: 
+                    state_value_matrix[j, i]=0.3*t
+            state_value_matrix[yb, xb]=0
+
     #put 0 in bomb range if distance from agent to explosion cell is equal
     f_deadzone=game_state['dead_zones']
     for i in range(0, arena.shape[0]-1):
@@ -197,15 +228,10 @@ def act(self, game_state):
             if deadzone:
                 state_value_matrix[i,j]=0
 
-    #put 0 in agent location if is in range of a bomb
-    # for (xb, yb), t in bombs:
-    #     blast=get_blast_coords(xb, yb, 3, arena)
-    #     self.logger.debug(f'Bomb  ({bombs}), range {blast} ') 
-    #     if (x,y) in blast:
-    #         self.logger.debug(f'Agent location ({(x,y)}) in bomb range, PUT 0 ') 
-    #         state_value_matrix[y,x]=0
+    # preserve values of only reachable cells
+    reacheable=reacheable_nodes(state_value_matrix, (x,y), self)
 
-    # return best_action
+    state_value_matrix=np.multiply(state_value_matrix, reacheable)
     
     # Choose direction as min path to safer cell with a star
     
@@ -305,11 +331,15 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     arena_dim=arena.shape[0]
     state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * np.inf)
 
-    # #Return score of each move equal to 0 if no enemies alive
+    #Return score of each move equal to 0 if no enemies alive
     if not others: 
         state_value_matrix = state_value_matrix = np.matrix(np.ones((arena_dim,arena_dim)) * 20)
+
+        #put 0 where we have walls and crafts (non legal position)
+        free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
+        state_value_matrix=np.multiply(state_value_matrix, free_matrix)
     else:
-    #fill manhattan distance matrix from enemies (0 where enemies are located)
+        #fill manhattan distance matrix from enemies (0 where enemies are located)
         for o in others:
             temp_value_matrix=np.zeros((arena_dim, arena_dim))
             for i in range(0, arena.shape[0]):
@@ -318,8 +348,14 @@ def behave(self, game_state: dict) -> Dict[str, float]:
             state_value_matrix=np.minimum(state_value_matrix,temp_value_matrix)
         
         self.logger.debug(f'Fill with manhattan from enemies distance matrix: \n{state_value_matrix}')
+
+        #put 0 where we have walls and crafts (non legal position)
+        free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
+        state_value_matrix=np.multiply(state_value_matrix, free_matrix)
+
         #add 1 for each legal movement executable from cell i,j
         #TODO: apply this only if cell value >=1 (so not in bomb range) and pt it at the end
+        
         for i in range(0, arena.shape[0]-1):
                 for j in range(0, arena.shape[0]-1):
                     leg_move=0
@@ -334,15 +370,13 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     for (xb, yb), t in bombs:
         dis=abs(xb- x) + abs(yb - y)
         if dis<=8:
-            state_value_matrix[j, i]=0.3*t
             blast=get_blast_coords(xb, yb, 3, arena)
             self.logger.debug(f'Bomb  ({bombs}), range {blast} ') 
             for (i, j) in blast:
-                state_value_matrix[j, i]=0.3*t
+                if state_value_matrix[j, i]!=0: 
+                    state_value_matrix[j, i]=0.3*t
             state_value_matrix[yb, xb]=0
-    #put 0 where we have walls and crafts (non legal position)
-    free_matrix=np.absolute(np.transpose(np.absolute(arena))-np.ones(arena.shape[0])) 
-    state_value_matrix=np.multiply(state_value_matrix, free_matrix)
+
     #put 0 in bomb range if distance from agent to explosion cell is equal
     f_deadzone=game_state['dead_zones']
     for i in range(0, arena.shape[0]-1):
@@ -352,6 +386,10 @@ def behave(self, game_state: dict) -> Dict[str, float]:
             if deadzone:
                 state_value_matrix[i,j]=0
 
+    # preserve values of only reachable cells
+    reacheable=reacheable_nodes(state_value_matrix, (x,y), self)
+
+    state_value_matrix=np.multiply(state_value_matrix, reacheable)
     # return best_action
     
     # Choose direction as min path to safer cell with a star
@@ -373,7 +411,6 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     path=reconstruct_path(came_from, start=(x,y), goal=true_goal)
     
     if not path: #choose greedy action
-
         max_cell=(y,x)
         max=state_value_matrix[y,x]
         best_action='WAIT'
@@ -403,46 +440,30 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     
     #Update the acton scores
     #Score will be 1/curr_value*increment_value, so the lower the value of current (cell security) the higher the score (need to move to another cell)
-    print(state_value_matrix)
     curr_value=state_value_matrix[y,x]
-    print(f'curr_value at {(y,x)}: {curr_value}')
-    right_value=state_value_matrix[y,x+1]
-    print(f'right_value at {(y,x+1)}: {right_value}')
-    left_value=state_value_matrix[y,x-1]
-    print(f'left_value at {(y,x+1)}: {left_value}')
-    up_value=state_value_matrix[y-1,x]
-    print(f'up_value at {(y-1,x)}: {up_value}')
-    down_value=state_value_matrix[y+1,x]
-    print(f'down_value at {(y-1,x)}: {down_value}')   
+    right_value=state_value_matrix[y,x+1] 
+    left_value=state_value_matrix[y,x-1] 
+    up_value=state_value_matrix[y-1,x] 
+    down_value=state_value_matrix[y+1,x]   
 
     #First version with bias towards best action
-    if best_action=='DOWN': action_scores['DOWN']=1/(curr_value+1)*(down_value-curr_value+1)
+    if best_action=='DOWN': action_scores['DOWN']=1/(curr_value+1)*((down_value-curr_value)+1)
     else: action_scores['DOWN']=1/(curr_value+1)*(down_value-curr_value)
-    if best_action=='UP': action_scores['UP']=1/(curr_value+1)*(up_value-curr_value+1)
+    if best_action=='UP': action_scores['UP']=1/(curr_value+1)*((up_value-curr_value)+1)
     else: action_scores['UP']=1/(curr_value+1)*(up_value-curr_value)
-    if best_action=='RIGHT': action_scores['RIGHT']=1/(curr_value+1)*(right_value-curr_value+1)
+    if best_action=='RIGHT': action_scores['RIGHT']=1/(curr_value+1)*((right_value-curr_value)+1)
     else: action_scores['RIGHT']=1/(curr_value+1)*(right_value-curr_value)
-    if best_action=='LEFT': action_scores['LEFT']=1/(curr_value+1)*(left_value-curr_value+1)
+    if best_action=='LEFT': action_scores['LEFT']=1/(curr_value+1)*((left_value-curr_value)+1)
     else: action_scores['LEFT']=1/(curr_value+1)*(left_value-curr_value)
-    if best_action=='WAIT': action_scores['WAIT']=1/(curr_value+1)*(curr_value-curr_value+1)
+    if best_action=='WAIT': action_scores['WAIT']=1/(curr_value+1)*((curr_value-curr_value)+1)
     else: action_scores['WAIT']=1/(curr_value+1)*(curr_value-curr_value)
 
-    # #Second version without bias towards best action
-    # action_scores['DOWN']=1/(curr_value+1)*(down_value-curr_value)
-    # action_scores['UP']=1/(curr_value+1)*(up_value-curr_value)
-    # action_scores['RIGHT']=1/(curr_value+1)*(right_value-curr_value)
-    # action_scores['LEFT']=1/(curr_value+1)*(left_value-curr_value)
-    # action_scores['WAIT']=1/(curr_value+1)*(curr_value-curr_value)
-    print('SURVIVAL DEBUG 1',action_scores)
     #Zero score negative score actions
     if action_scores['DOWN']<0: action_scores['DOWN']=0
     if action_scores['UP']<0: action_scores['UP']=0
     if action_scores['RIGHT']<0: action_scores['RIGHT']=0
     if action_scores['LEFT']<0: action_scores['LEFT']=0
     if action_scores['WAIT']<0: action_scores['WAIT']=0
-    print('SURVIVAL DEBUG 2',action_scores)
-    #add half of residual score to best action
-    #action_scores[best_action]+=0.5*(1-action_scores[best_action])
-    #print(action_scores)
+    
     return action_scores
     
