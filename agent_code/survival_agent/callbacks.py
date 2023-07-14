@@ -443,9 +443,17 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     if action_scores['RIGHT']<0: action_scores['RIGHT']=0
     if action_scores['LEFT']<0: action_scores['LEFT']=0
     if action_scores['WAIT']<0: action_scores['WAIT']=0
-
-    #add half of residual score to best action
-    #action_scores[best_action]+=0.5*(1-action_scores[best_action])
-    #print(action_scores)
+    
+    state_value_matrix[y,x]=1
+    blast_on_agent = get_blast_coords(x, y, 3, arena)
+    for blast in blast_on_agent:
+        xb, yb = blast
+        state_value_matrix[yb, xb] = 1
+        state_value_matrix[y,x]=1
+        state_value_matrix=np.multiply(state_value_matrix, reacheable)
+        escapes= reacheable-state_value_matrix
+        if not np.any(escapes):
+            action_scores['BOMB']=-1
+    
     return action_scores
     
