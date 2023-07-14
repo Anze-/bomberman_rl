@@ -83,9 +83,6 @@ def act(self, game_state):
         "coin_hunter": coin_hunter_action_scores,
     }
 
-    if name == "genetic_agent_0":
-        print(f"WEIGHTS: {weights}")
-        print(f"ACTION SCORES: {action_scores}")
 
     #for key in action_scores:
     #    if name == "genetic_agent_0":

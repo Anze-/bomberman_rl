@@ -317,7 +317,14 @@ def main(argv=None):
             with open("./agent_code/genetic_agent/winner.pkl", "rb") as f:
                 winner = pickle.load(f)
 
+            #config_file = './agent_code/genetic_agent/config-feedforward.txt'
+            #config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+            #                     neat.DefaultSpeciesSet, neat.DefaultStagnation,
+            #                     config_file)
+            #winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
+            #output = winner_net.activate([0])
 
+            #weights = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
             print("winner: ", winner)
             world.agents[0].weights = winner
 
