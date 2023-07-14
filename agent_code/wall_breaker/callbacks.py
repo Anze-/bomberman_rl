@@ -299,19 +299,19 @@ def best_bomb(accmap, myxy):
             damage, safety, safemap = bomb_damage([bx, by], accmap, safemap, r=3)
             #print(x,y,damage)
             manhattan = np.abs(x-bx) + np.abs(y-by)
-            print("dist",manhattan)
+            #@print("dist",manhattan)
             heumap[bx, by] = damage/(1+manhattan)
 
     best_bomb_xy = np.unravel_index(np.argmax(heumap), heumap.shape)
-    print(heumap[best_bomb_xy[0], best_bomb_xy[1]])
+    #@print(heumap[best_bomb_xy[0], best_bomb_xy[1]])
     #print(heumap)
-    print("best bomb xy: ",  best_bomb_xy)
-    print("== HEUMAP ==")
-    print(heumap)
-    print("== END HEUMAP ==")
-    print("== accmap ==")
-    print(accmap)
-    print("== END accmap ==")
+    #@print("best bomb xy: ",  best_bomb_xy)
+    #@print("== HEUMAP ==")
+    #@print(heumap)
+    #@print("== END HEUMAP ==")
+    #@print("== accmap ==")
+    #@print(accmap)
+    #@print("== END accmap ==")
     return best_bomb_xy, heumap
 
 
@@ -340,7 +340,7 @@ def dijkstra(accmap, myxy, bombxy):
     #import pdb
     #pdb.set_trace()
     path = dijk.get_path(f"{bx},{by}")
-    print("path:",path)
+    #@print("path:",path)
     return path
 
 
@@ -367,11 +367,10 @@ def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
         # this can cause looping because argmax gives the first position for the bomb
         # if two positions are equivalent but one is occupied, by moving to the next position
         # the previous one is going to become the best position
-        # the or attempts to prevent looping
-        print("=======")
-        print(myxy)
-        print(accmap)
-        print(heumap)
+        #@print("=======")
+        #@print(myxy)
+        #@print(accmap)
+        #@print(heumap)
         #import pdb
         #pdb.set_trace()
 
