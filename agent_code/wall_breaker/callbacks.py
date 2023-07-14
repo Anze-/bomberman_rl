@@ -264,7 +264,7 @@ def act(self, game_state):
     # too slow!
     scd = brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy)
     # print(scd)
-    print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+    #print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
     return list(scd.keys())[np.argmax(list(scd.values()))]
 
 
@@ -374,7 +374,7 @@ def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
         #import pdb
         #pdb.set_trace()
 
-        print("damage:", damage)
+        #print("damage:", damage)
         score_dict["BOMB"] = get_score(myarea, damage, safety)
         self.damage_history = [999, 999, 999, 999, 999, 999, 999]
         return score_dict
