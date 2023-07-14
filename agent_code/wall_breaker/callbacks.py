@@ -109,10 +109,11 @@ def bomb_damage(bombxy, gamemap, safemap, r=3):
     #r is the bomb radius
     x, y = bombxy
     #print(x, y)
-    col = gamemap[x, max(0, y - r):min(16, y + r + 2)].flatten()
-    row = gamemap[max(0, x-r):max(16, x+r+2), y].flatten()
+    col = gamemap[x, max(0, y - r):min(16, y + r + 1)].flatten()
+    row = gamemap[max(0, x-r):min(16, x+r+1), y].flatten()
+    #print(col,row)
 
-    #do not count after bricks
+    # assess the map portion affected by the bomb
     col[3] = 747
     row[3] = 747
     csplits = np.split(col, np.where(col == -1)[0])
@@ -124,15 +125,18 @@ def bomb_damage(bombxy, gamemap, safemap, r=3):
     for el in rsplits:
         if 747 in el:
             rsplit = el
-
-    damage = np.sum(
-        1 == np.concatenate([
+    hit_map = np.concatenate([
             rsplit,
             csplit,
         ])
+
+    # print("hitmap:", hit_map)
+    # get number of boxes
+    damage = np.sum(
+        1 == hit_map
     )
-    safemap[x, max(0,y-r):min(16,y+r+2)] = -9
-    safemap[max(0,x-r):max(16,x+r+2), y] = -9
+    safemap[x, max(0,y-r):min(16,y+r+1)] = -9
+    safemap[max(0,x-r):min(16,x+r+1), y] = -9
     safety = (safemap == 10).sum()
     #print(safemap)
     #print("safety", safety)
@@ -144,7 +148,7 @@ def bomb_damage(bombxy, gamemap, safemap, r=3):
         damage = 0
 
     return damage, safety, safemap
-def recursive_accessible_area(myxy, mymap, counter, threshold=16):
+def recursive_accessible_area(myxy, mymap, counter, threshold=32):
     if counter>threshold:
         return mymap
     counter += 1
@@ -173,7 +177,7 @@ def recursive_accessible_area(myxy, mymap, counter, threshold=16):
 
 def open_area(myxy, gamemap):
     mymap = copy.deepcopy(gamemap)
-    mymap = recursive_accessible_area(myxy, mymap, 0, threshold=16)
+    mymap = recursive_accessible_area(myxy, mymap, 0, threshold=128)
     myarea = (mymap == 10).sum()
 
     return mymap, myarea
@@ -260,6 +264,7 @@ def act(self, game_state):
     # too slow!
     scd = brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy)
     # print(scd)
+    print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
     return list(scd.keys())[np.argmax(list(scd.values()))]
 
 
@@ -284,19 +289,29 @@ def random_walk(arena):
     return score_dict
 
 
-def best_bomb(accmap):
+def best_bomb(accmap, myxy):
+    x,y = myxy
     heumap = np.zeros([17, 17])
     for P in np.ndenumerate(accmap):
-        (x, y), val = P
+        (bx, by), val = P
         if val == 10:
             safemap = copy.deepcopy(accmap)
-            damage, safety, safemap = bomb_damage([x, y], accmap, safemap, r=3)
+            damage, safety, safemap = bomb_damage([bx, by], accmap, safemap, r=3)
             #print(x,y,damage)
-            heumap[x, y] = damage
+            manhattan = np.abs(x-bx) + np.abs(y-by)
+            print("dist",manhattan)
+            heumap[bx, by] = damage/(1+manhattan)
 
     best_bomb_xy = np.unravel_index(np.argmax(heumap), heumap.shape)
+    print(heumap[best_bomb_xy[0], best_bomb_xy[1]])
     #print(heumap)
-    #print("best bomb xy: ",  best_bomb_xy)
+    print("best bomb xy: ",  best_bomb_xy)
+    print("== HEUMAP ==")
+    print(heumap)
+    print("== END HEUMAP ==")
+    print("== accmap ==")
+    print(accmap)
+    print("== END accmap ==")
     return best_bomb_xy, heumap
 
 
@@ -325,6 +340,7 @@ def dijkstra(accmap, myxy, bombxy):
     #import pdb
     #pdb.set_trace()
     path = dijk.get_path(f"{bx},{by}")
+    print("path:",path)
     return path
 
 
@@ -342,17 +358,24 @@ def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
     if (accmap == 1).sum() < 1:
         return score_dict
 
-    bombxy, heumap = best_bomb(accmap)
+    bombxy, heumap = best_bomb(accmap, myxy)
 
     #we are on the target => drop the bomb
+    damage, safety, safemap = bomb_damage(myxy, accmap, safemap, r=3)
+    b_damage, _, _ = bomb_damage(bombxy, accmap, safemap, r=3)
     if bombxy==myxy:
+        # this can cause looping because argmax gives the first position for the bomb
+        # if two positions are equivalent but one is occupied, by moving to the next position
+        # the previous one is going to become the best position
+        # the or attempts to prevent looping
         print("=======")
         print(myxy)
         print(accmap)
         print(heumap)
         #import pdb
         #pdb.set_trace()
-        damage, safety, safemap = bomb_damage(myxy, arena, safemap, r=3)
+
+        print("damage:", damage)
         score_dict["BOMB"] = get_score(myarea, damage, safety)
         self.damage_history = [999, 999, 999, 999, 999, 999, 999]
         return score_dict
