@@ -339,10 +339,16 @@ def dijkstra(accmap, myxy, bombxy):
     dijk = DijkstraSPF(graph, f"{x},{y}")
     #import pdb
     #pdb.set_trace()
-    path = dijk.get_path(f"{bx},{by}")
-    #@print("path:",path)
-    return path
+    try:
+        path = dijk.get_path(f"{bx},{by}")
 
+        #@print("path:",path)
+        return path
+    except Exception as e:
+        #print(accmap)
+        #print(myxy)
+        #print(bombxy)
+        return None
 
 def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
     score_dict = {
@@ -382,6 +388,9 @@ def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
     best_damage = heumap.max()/12
 
     bestpath = dijkstra(accmap, myxy, bombxy)
+    if bestpath is None:
+        return score_dict
+
     distance = len(bestpath)
 
     move_score = best_damage/distance

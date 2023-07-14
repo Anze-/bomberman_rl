@@ -176,10 +176,10 @@ def main(argv=None):
             raise ValueError("You can only train a genetic agent")
 
         if args.my_agent:
-            #if args.train_genetic:
+            # if args.train_genetic:
             #    # set 4 players as genetic agent
             #    args.agents = [args.my_agent] * (s.MAX_AGENTS)
-            #else:
+            # else:
             # set 3 players as rule based agent and 1 chosen agent
             agents.append((args.my_agent, len(agents) < args.train))
             args.agents = ["rule_based_agent"] * (s.MAX_AGENTS - 1)
@@ -202,11 +202,13 @@ def main(argv=None):
         gui = None
 
     def eval_genomes(genomes, config):
+        print(genomes)
+
+        # reset
 
         global AGENTS, BEST_FITNESS, BEST_WEIGHTS
 
         genomes_index = 0
-        agent_index = 0  # index of the agent in AGENTS
         while genomes_index < len(genomes):
             # each generation the world is reset
             world = BombeRLeWorld(args, agents)
@@ -214,11 +216,8 @@ def main(argv=None):
             if has_gui:
                 gui = GUI(world)
 
-            start = genomes_index
-            stop = genomes_index + 4
-
             # creates 4 agents at a time and runs them
-            #for index, elem in enumerate(genomes[start:stop]):
+            # for index, elem in enumerate(genomes[start:stop]):
             genome_id = genomes[genomes_index][0]
             genome = genomes[genomes_index][1]
 
@@ -228,34 +227,43 @@ def main(argv=None):
             world.agents[0].train_genetic = True
             world.agents[0].genome = genome
 
-            scores = AGENTS[agent_index]["s"]
+            score = AGENTS[genomes_index]["s"]
+            pesi = AGENTS[genomes_index]["w"]
+            is_winner = AGENTS[genomes_index]["winner"]
+            wb = pesi["wall_breaker"]
+            surv = pesi["survival"]
+            ch = pesi["coin_hunter"]
+            print("input to net", [wb, surv, ch, score, is_winner])
+            output = world.agents[0].genetic_agent_net.activate([wb, surv, ch, score, is_winner])
 
-            output = world.agents[0].genetic_agent_net.activate(scores)
-
-            AGENTS[agent_index]["w"] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
-            world.agents[0].weights = AGENTS[agent_index]["w"]
+            AGENTS[genomes_index]["w"] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+            world.agents[0].weights = AGENTS[genomes_index]["w"]
 
             # execute the world
             world_controller(world, args.n_rounds, skip_end_round=False,
                              gui=gui, every_step=every_step, turn_based=args.turn_based,
                              make_video=args.make_video, update_interval=args.update_interval)
 
-            # get scores of all agents at the end of the game (not round)
-            #scores = [agent.total_score for agent in world.agents]
-            total_scores = [agent.total_score for agent in world.agents]
+            scores = [agent.total_score for agent in world.agents]
 
-            scores = [world.agents[0].total_score]
+            maxpos = scores.index(max(scores))
+            if maxpos == 0:
+                is_winner = 1
+            else:
+                is_winner = 0
 
-            #for k in range(agent_index - 4, agent_index):
-            AGENTS[agent_index]["s"] = scores
-            agent_index += 1
-
+            # for k in range(agent_index - 4, agent_index):
+            AGENTS[genomes_index]["s"] = scores[0]
+            AGENTS[genomes_index]["winner"] = is_winner
 
             # fitness is assigned to each agent when they pickup a coin (update_score inside agent\.py)
             # here we collect ge and fitness from each agent and assign it to the genome
             # fitness is the score of the agent (the more coins it picks up, the higher the score)
             # for g, agent in zip(genomes[start:stop], world.agents):
-            genomes[genomes_index][1].fitness = world.agents[0].genome.fitness
+            if is_winner == 1:
+                genomes[genomes_index][1].fitness = world.agents[0].genome.fitness
+            else:
+                genomes[genomes_index][1].fitness = max(0, (world.agents[0].genome.fitness -5))
 
             if world.agents[0].genome.fitness > BEST_FITNESS:
                 BEST_FITNESS = world.agents[0].genome.fitness
@@ -263,8 +271,8 @@ def main(argv=None):
                 print("New best weights found: ", BEST_WEIGHTS)
 
             genomes_index += 1
+            print("genome index", genomes_index)
 
-        print("Generation finished")
         for elem in AGENTS:
             print(elem)
 
@@ -275,7 +283,6 @@ def main(argv=None):
                                     config_file)
         pop_size = config.pop_size
 
-
         global AGENTS, BEST_WEIGHTS
 
         for _ in range(pop_size):
@@ -285,7 +292,8 @@ def main(argv=None):
                     "survival": 0.5,
                     "coin_hunter": 0.5,
                 },
-                "s": [0]
+                "s": 0,
+                "winner": 0,
             }
             AGENTS.append(AGENT_DICT)
 
@@ -299,15 +307,13 @@ def main(argv=None):
         # p.add_reporter(neat.Checkpointer(5))
 
         # Run for up to 30 generations.
-        winner = p.run(eval_genomes, 10)
-
+        winner = p.run(eval_genomes, 5)
 
         with open("./agent_code/genetic_agent/winner.pkl", "wb") as f:
             pickle.dump(BEST_WEIGHTS, f)
 
         with open("./agent_code/genetic_agent/winner_net.pkl", "wb") as f:
             pickle.dump(winner, f)
-
 
         # show final stats
         print('\nBest genome:\n{!s}'.format(winner))
@@ -317,14 +323,14 @@ def main(argv=None):
             with open("./agent_code/genetic_agent/winner.pkl", "rb") as f:
                 winner = pickle.load(f)
 
-            #config_file = './agent_code/genetic_agent/config-feedforward.txt'
-            #config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+            # config_file = './agent_code/genetic_agent/config-feedforward.txt'
+            # config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
             #                     neat.DefaultSpeciesSet, neat.DefaultStagnation,
             #                     config_file)
-            #winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
-            #output = winner_net.activate([0])
+            # winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
+            # output = winner_net.activate([0])
 
-            #weights = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+            # weights = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
             print("winner: ", winner)
             world.agents[0].weights = winner
 
