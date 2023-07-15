@@ -379,10 +379,24 @@ def behave(self, game_state: dict) -> Dict[str, float]:
         if dis <= 8:
             blast = get_blast_coords(xb, yb, 3, arena)
             self.logger.debug(f'Bomb  ({bombs}), range {blast} ')
+            state_value_matrix[yb, xb] = 0
             for (i, j) in blast:
                 if state_value_matrix[j, i] != 0:
-                    state_value_matrix[j, i] = 0.3 * t
-            state_value_matrix[yb, xb] = 0
+                    #add 0.3*dis from bomb to blast coord where dis is manhattan distance from bomb
+                    #ex 0.9 0.6 0.3 0.0 0.3 0.6 0.9 at t=3
+                    # 0.6 0.4 0.2 0.0 0.2 0.4 0.6 at second step
+                    if t!=0:
+                        dis=abs(i-xb)+abs(j-yb)
+                        state_value_matrix[j, i]=dis*0.3
+                        print("BOMB VALUE WITHout TIME ", state_value_matrix[j, i])
+                        state_value_matrix[j, i]=state_value_matrix[j, i]-((3-t)*0.1*dis)
+                        print("DIS ", dis)
+                        print("TIME ", t)
+                        print("BOMB VALUE WITH TIME ", state_value_matrix[j, i])
+                    else:
+                        state_value_matrix[j, i] = 0
+    
+
 
     # put 0 in bomb range if distance from agent to explosion cell is equal
     f_deadzone = game_state['dead_zones']
@@ -393,6 +407,8 @@ def behave(self, game_state: dict) -> Dict[str, float]:
             if deadzone:
                 state_value_matrix[i, j] = 0
 
+    #
+    print("final state value matrix", state_value_matrix)
     # preserve values of only reachable cells
     reacheable = reacheable_nodes(state_value_matrix, (x, y), self)
 
