@@ -309,7 +309,7 @@ def main(argv=None):
         p.add_reporter(neat.StdOutReporter(True))
         stats = neat.StatisticsReporter()
         p.add_reporter(stats)
-        p.add_reporter(neat.Checkpointer(3))
+        p.add_reporter(neat.Checkpointer(2))
 
         # Run for up to 30 generations.
         winner = p.run(eval_genomes, 20)
@@ -319,8 +319,6 @@ def main(argv=None):
 
         with open("./agent_code/genetic_agent/winner_net.pkl", "wb") as f:
             pickle.dump(winner, f)
-
-
 
 
         # show final stats
