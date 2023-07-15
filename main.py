@@ -9,6 +9,8 @@ from environment import BombeRLeWorld, GUI
 from fallbacks import pygame, LOADED_PYGAME
 from replay import ReplayWorld
 
+import multiprocessing
+
 import neat
 import pickle
 
@@ -233,7 +235,7 @@ def main(argv=None):
             wb = pesi["wall_breaker"]
             surv = pesi["survival"]
             ch = pesi["coin_hunter"]
-            print("input to net", [wb, surv, ch, score, is_winner])
+
             output = world.agents[0].genetic_agent_net.activate([wb, surv, ch, score, is_winner])
 
             AGENTS[genomes_index]["w"] = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
@@ -261,9 +263,9 @@ def main(argv=None):
             # fitness is the score of the agent (the more coins it picks up, the higher the score)
             # for g, agent in zip(genomes[start:stop], world.agents):
             if is_winner == 1:
-                genomes[genomes_index][1].fitness = world.agents[0].genome.fitness
+                genomes[genomes_index][1].fitness = world.agents[0].genome.fitness + 100
             else:
-                genomes[genomes_index][1].fitness = max(0, (world.agents[0].genome.fitness -5))
+                genomes[genomes_index][1].fitness = max(0, (world.agents[0].genome.fitness - 5))
 
             if world.agents[0].genome.fitness > BEST_FITNESS:
                 BEST_FITNESS = world.agents[0].genome.fitness
@@ -307,7 +309,7 @@ def main(argv=None):
         # p.add_reporter(neat.Checkpointer(5))
 
         # Run for up to 30 generations.
-        winner = p.run(eval_genomes, 5)
+        winner = p.run(eval_genomes, 50)
 
         with open("./agent_code/genetic_agent/winner.pkl", "wb") as f:
             pickle.dump(BEST_WEIGHTS, f)

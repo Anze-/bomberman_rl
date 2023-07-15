@@ -108,6 +108,8 @@ class Agent:
         self.genetic_agent_net = None
         self.genome = None
 
+        self.round_victories = 0
+
         self.weights = {
             "wall_breaker": 0.5,
             "survival": 0.5,
@@ -125,14 +127,6 @@ class Agent:
             self.backend.send_event("setup_training")
             self.backend.get("setup_training")
 
-    # add actions to history and return true if there is the same action for 20 times
-    #def add_action(self, action):
-    #    self.history.append(action)
-    #    if len(self.history) > 50:
-    #        self.history.pop(0)
-    #    if len(set(self.history)) == 1:
-    #        return True
-    #   return False
 
     def __str__(self):
         return f"Agent {self.name} under control of {self.code_name}"
