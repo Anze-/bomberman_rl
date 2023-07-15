@@ -1,6 +1,7 @@
 from collections import deque
 import numpy as np
 import sys
+import random
 
 sys.path.append("agent_code")
 
@@ -8,6 +9,8 @@ import agent_code.coin_hunter_agent.callbacks as coin_hunter_agent
 import agent_code.wall_breaker.callbacks as wall_breaker_agent
 import agent_code.rule_based_agent.callbacks as rule_based_agent
 import agent_code.survival_agent.callbacks as survival_agent
+
+from agent_code.coin_hunter_agent.movement import *
 
 
 def setup(self):
@@ -72,10 +75,6 @@ def act(self, game_state):
     coin_hunter_action_scores = coin_hunter_agent.behave(game_state, coin_hunter_params)
     survival_agent_action_scores = survival_agent.behave(self, game_state)
 
-    # if all scores are zero, return wait
-    if all(value == 0 for value in wall_breaker_action_scores.values()) and all(value == 0 for value in coin_hunter_action_scores.values()) and all(value == 0 for value in survival_agent_action_scores.values()):
-        return "WAIT"
-
     # the value of the dict is another dictionary with the action and the score
     action_scores = {
         "wall_breaker": wall_breaker_action_scores,
@@ -108,6 +107,12 @@ def act(self, game_state):
     for key in action_summed_scores:
         for (agent, scores) in action_scores.items():
             action_summed_scores[key] += scores[key]
+            
+    # remove unviable moves
+    curr_pos = Coord(x=game_state['self'][3][0], y=game_state['self'][3][1])
+    for d in Dir:
+        if not is_pos_free(apply_dir(curr_pos, d), game_state):
+            action_summed_scores[d.name] = 0
 
     # get the action with the highest score
     max_score = 0
@@ -117,6 +122,14 @@ def act(self, game_state):
         if action_summed_scores[key] > max_score:
             max_score = action_summed_scores[key]
             max_action = key
+
+    # if all scores were zero, return a random movement action if one is available, otherwise wait
+    if max_score == 0:
+        safe_dirs = [d.name for d in get_valid_dirs(curr_pos, game_state, 1)]
+        if safe_dirs:
+            max_action = random.choice(safe_dirs)
+        else:
+            max_action = "WAIT"
 
     if name == "genetic_agent_0":
         print(f"SUMMED ACTION SCORES: {action_summed_scores}")
