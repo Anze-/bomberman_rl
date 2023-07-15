@@ -59,6 +59,7 @@ def world_controller(world, n_rounds, *,
             pygame.display.flip()
 
     user_input = None
+    first_scores = [0, 0]
     for _ in tqdm(range(n_rounds)):
         world.new_round()
         while world.running:
@@ -85,6 +86,18 @@ def world_controller(world, n_rounds, *,
                 # Might want to wait
                 pass
 
+        scores = [agent.total_score for agent in world.agents]
+        scores[0] = scores[0] - first_scores[0]
+        scores[1] = scores[1] - first_scores[1]
+        first_scores[0] = first_scores[0] + scores[0]
+        first_scores[1] = first_scores[1] + scores[1]
+
+        if world.agents[0].genome.fitness is not None:
+            if scores[0] >= scores[1]:
+                world.agents[0].genome.fitness += 50
+            else:
+                world.agents[0].genome.fitness -= 10
+
         # Save video of last game
         if make_video:
             gui.make_video()
@@ -102,6 +115,8 @@ def world_controller(world, n_rounds, *,
                             key_pressed = event.key
                             if key_pressed in s.INPUT_MAP or key_pressed in ESCAPE_KEYS:
                                 do_continue = True
+
+
 
     world.end()
 
@@ -174,7 +189,7 @@ def main(argv=None):
     # Initialize environment and agents
     if args.command_name == "play":
         agents = []
-        if args.train_genetic and args.my_agent != "genetic_agent":
+        if args.train_genetic and (args.my_agent != "genetic_agent" and "genetic_agent" not in args.agents):
             raise ValueError("You can only train a genetic agent")
 
         if args.my_agent:
@@ -200,11 +215,23 @@ def main(argv=None):
         gui = None
 
     def eval_genomes(genomes, config):
-        print(genomes)
-
-        # reset
-
         global AGENTS, BEST_FITNESS, BEST_WEIGHTS
+
+        if len(genomes) > len(AGENTS):
+            l = len(genomes) - len(AGENTS)
+            for _ in range(l):
+                AGENT_DICT = {
+                    "w": {
+                        "wall_breaker": 0.5,
+                        "survival": 0.5,
+                        "coin_hunter": 0.5,
+                    },
+                    "s": 0,
+                    "winner": 0,
+                }
+                AGENTS.append(AGENT_DICT)
+
+
 
         genomes_index = 0
         while genomes_index < len(genomes):
@@ -308,7 +335,7 @@ def main(argv=None):
         p.add_reporter(neat.Checkpointer(2))
 
         # Run for up to 30 generations.
-        winner = p.run(eval_genomes, 20)
+        winner = p.run(eval_genomes, 10)
 
         with open("./agent_code/genetic_agent/winner.pkl", "wb") as f:
             pickle.dump(BEST_WEIGHTS, f)
@@ -325,14 +352,16 @@ def main(argv=None):
             with open("./agent_code/genetic_agent/winner.pkl", "rb") as f:
                 winner = pickle.load(f)
 
-            # config_file = './agent_code/genetic_agent/config-feedforward.txt'
-            # config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+            #with open("./agent_code/genetic_agent/winner_net.pkl", "rb") as f:
+            #    winner = pickle.load(f)
+            #config_file = './agent_code/genetic_agent/config-feedforward.txt'
+            #config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
             #                     neat.DefaultSpeciesSet, neat.DefaultStagnation,
             #                     config_file)
-            # winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
-            # output = winner_net.activate([0])
+            #winner_net = neat.nn.FeedForwardNetwork.create(winner, config)
+            #output = winner_net.activate([0, 0])
 
-            # weights = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+            #weights = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
             print("winner: ", winner)
             world.agents[0].weights = winner
 
