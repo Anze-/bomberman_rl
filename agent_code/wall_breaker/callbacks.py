@@ -316,6 +316,10 @@ def best_bomb(accmap, myxy):
 
 
 def dijkstra(accmap, myxy, bombxy):
+    # if the heuristics is flat just stay there
+    if bombxy==(0,0):
+        x,y=myxy
+        return [] #if returned len<2 just stays still
     from dijkstra import Graph, DijkstraSPF
     # create the graph
     graph = Graph()
