@@ -285,6 +285,8 @@ def main(argv=None):
                                     config_file)
         pop_size = config.pop_size
 
+
+
         global AGENTS, BEST_WEIGHTS
 
         for _ in range(pop_size):
@@ -301,21 +303,25 @@ def main(argv=None):
 
         # Create the population, which is the top-level object for a NEAT run.
         p = neat.Population(config)
+        # p = neat.Checkpointer.restore_checkpoint('neat-checkpoint-4')
 
         # Add a stdout reporter to show progress in the terminal.
         p.add_reporter(neat.StdOutReporter(True))
         stats = neat.StatisticsReporter()
         p.add_reporter(stats)
-        # p.add_reporter(neat.Checkpointer(5))
+        p.add_reporter(neat.Checkpointer(3))
 
         # Run for up to 30 generations.
-        winner = p.run(eval_genomes, 50)
+        winner = p.run(eval_genomes, 20)
 
         with open("./agent_code/genetic_agent/winner.pkl", "wb") as f:
             pickle.dump(BEST_WEIGHTS, f)
 
         with open("./agent_code/genetic_agent/winner_net.pkl", "wb") as f:
             pickle.dump(winner, f)
+
+
+
 
         # show final stats
         print('\nBest genome:\n{!s}'.format(winner))
