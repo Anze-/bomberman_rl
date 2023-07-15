@@ -178,10 +178,6 @@ def main(argv=None):
             raise ValueError("You can only train a genetic agent")
 
         if args.my_agent:
-            # if args.train_genetic:
-            #    # set 4 players as genetic agent
-            #    args.agents = [args.my_agent] * (s.MAX_AGENTS)
-            # else:
             # set 3 players as rule based agent and 1 chosen agent
             agents.append((args.my_agent, len(agents) < args.train))
             args.agents = ["rule_based_agent"] * (s.MAX_AGENTS - 1)
@@ -263,9 +259,9 @@ def main(argv=None):
             # fitness is the score of the agent (the more coins it picks up, the higher the score)
             # for g, agent in zip(genomes[start:stop], world.agents):
             if is_winner == 1:
-                genomes[genomes_index][1].fitness = world.agents[0].genome.fitness + 100
+                genomes[genomes_index][1].fitness = world.agents[0].genome.fitness
             else:
-                genomes[genomes_index][1].fitness = max(0, (world.agents[0].genome.fitness - 5))
+                genomes[genomes_index][1].fitness = max(0, (world.agents[0].genome.fitness - 10))
 
             if world.agents[0].genome.fitness > BEST_FITNESS:
                 BEST_FITNESS = world.agents[0].genome.fitness
@@ -324,7 +320,7 @@ def main(argv=None):
         # show final stats
         print('\nBest genome:\n{!s}'.format(winner))
     else:
-        if args.my_agent == "genetic_agent":
+        if args.my_agent == "genetic_agent" or args.agents[0] == "genetic_agent":
             # load winner weights
             with open("./agent_code/genetic_agent/winner.pkl", "rb") as f:
                 winner = pickle.load(f)

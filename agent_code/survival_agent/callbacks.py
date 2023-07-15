@@ -388,11 +388,7 @@ def behave(self, game_state: dict) -> Dict[str, float]:
                     if t!=0:
                         dis=abs(i-xb)+abs(j-yb)
                         state_value_matrix[j, i]=dis*0.3
-                        print("BOMB VALUE WITHout TIME ", state_value_matrix[j, i])
                         state_value_matrix[j, i]=state_value_matrix[j, i]-((3-t)*0.1*dis)
-                        print("DIS ", dis)
-                        print("TIME ", t)
-                        print("BOMB VALUE WITH TIME ", state_value_matrix[j, i])
                     else:
                         state_value_matrix[j, i] = 0
     
@@ -408,7 +404,6 @@ def behave(self, game_state: dict) -> Dict[str, float]:
                 state_value_matrix[i, j] = 0
 
     #
-    print("final state value matrix", state_value_matrix)
     # preserve values of only reachable cells
     reacheable = reacheable_nodes(state_value_matrix, (x, y), self)
 

@@ -92,8 +92,8 @@ def act(self, game_state):
         for key in scores:
             scores[key] *= weights[agent]
 
-    if name == "genetic_agent_0":
-        print(f"WEIGHTED ACTION SCORES: {action_scores}")
+    #if name == "genetic_agent_0":
+    #    print(f"WEIGHTED ACTION SCORES: {action_scores}")
 
     # sum the scores of each action for each agent
     action_summed_scores = {
@@ -117,7 +117,7 @@ def act(self, game_state):
     # get the action with the highest score
     max_score = 0
     max_action = None
-    agent = None
+
     for key in action_summed_scores:
         if action_summed_scores[key] > max_score:
             max_score = action_summed_scores[key]
@@ -131,10 +131,8 @@ def act(self, game_state):
         else:
             max_action = "WAIT"
 
-    if name == "genetic_agent_0":
-        print(f"SUMMED ACTION SCORES: {action_summed_scores}")
-        print(f"MAX ACTION: {max_action} with score {max_score}")
+    #if name == "genetic_agent_0":
+    #    print(f"SUMMED ACTION SCORES: {action_summed_scores}")
+    #    print(f"MAX ACTION: {max_action} with score {max_score}")
 
-    # if all zeroz do wait
-    #print(f"action {max_action} from agent {agent}")
     return max_action
