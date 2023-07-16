@@ -397,7 +397,7 @@ def brick_walk(self, game_state, myarea, arena, safemap, accmap, myxy):
         nextxy = list(map(int, bestpath[1].split(",")))
 
         #check if the suggestion is immediately deadly
-        if game_state["dead_zones"](tuple(nextxy), game_state["step"] + 1):
+        if game_state["dead_zones"](tuple(nextxy), 1):
             return score_dict
     move = np.array(nextxy) - np.array(myxy)
     if (move == [-1,  0]).all(): score_dict["LEFT"] = move_score
