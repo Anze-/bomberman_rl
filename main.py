@@ -92,7 +92,7 @@ def world_controller(world, n_rounds, *,
         first_scores[0] = first_scores[0] + scores[0]
         first_scores[1] = first_scores[1] + scores[1]
 
-        if world.agents[0].genome.fitness is not None:
+        if world.agents[0].genome is not None:
             if scores[0] >= scores[1]:
                 world.agents[0].genome.fitness += 50
             else:
@@ -362,6 +362,7 @@ def main(argv=None):
             #output = winner_net.activate([0, 0])
 
             #weights = {"wall_breaker": output[0], "survival": output[1], "coin_hunter": output[2]}
+            #winner["survival"] = 0.001
             print("winner: ", winner)
             world.agents[0].weights = winner
 
