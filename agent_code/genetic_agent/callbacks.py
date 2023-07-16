@@ -7,7 +7,6 @@ sys.path.append("agent_code")
 
 import agent_code.coin_hunter_agent.callbacks as coin_hunter_agent
 import agent_code.wall_breaker.callbacks as wall_breaker_agent
-import agent_code.rule_based_agent.callbacks as rule_based_agent
 import agent_code.survival_agent.callbacks as survival_agent
 
 from agent_code.coin_hunter_agent.movement import *
@@ -58,14 +57,14 @@ def act(self, game_state):
 
     # pick agent weights
     weights = game_state['agent_weights']
-    #print("AGENT WEIGHTS", weights)
 
-    # get action and score from each agent set action = wait if the first argument is None
+
     if game_state is None:
         print("GAME STATE IS NONE", game_state)
     if self is None:
         print("SELF IS NONE", self)
 
+    # get action and score from each agent
     coin_hunter_params = {
         "reward_fun_weight": 0.05,  # the weight of the reward function
         "n_iters": 12,  # the number of iterations of the stochastic local beam search
@@ -83,17 +82,10 @@ def act(self, game_state):
     }
 
 
-    #for key in action_scores:
-    #    if name == "genetic_agent_0":
-    #    print(f"genetic_agent_0 {key}: {action_scores[key]}")
-
     # for each agent, multiply each score on the dictionary by the weight
     for (agent, scores) in action_scores.items():
         for key in scores:
             scores[key] *= weights[agent]
-
-    #if name == "genetic_agent_0":
-    #    print(f"WEIGHTED ACTION SCORES: {action_scores}")
 
     # sum the scores of each action for each agent
     action_summed_scores = {
@@ -130,9 +122,5 @@ def act(self, game_state):
             max_action = random.choice(safe_dirs)
         else:
             max_action = "WAIT"
-
-    #if name == "genetic_agent_0":
-    #    print(f"SUMMED ACTION SCORES: {action_summed_scores}")
-    #    print(f"MAX ACTION: {max_action} with score {max_score}")
 
     return max_action
