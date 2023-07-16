@@ -464,27 +464,31 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     up_value = state_value_matrix[y - 1, x]
     down_value = state_value_matrix[y + 1, x]
 
+    if curr_value == 0:
+        action_scores[best_action] = 1
+        return action_scores
     # First version with bias towards best action
     if best_action == 'DOWN':
-        action_scores['DOWN'] = 1 / (curr_value + 1) * ((down_value - curr_value) + 1)
+        action_scores['DOWN'] = 1 / (np.exp(curr_value)) * ((down_value - curr_value) + 1)
     else:
-        action_scores['DOWN'] = 1 / (curr_value + 1) * (down_value - curr_value)
+        action_scores['DOWN'] = 1 / (np.exp(curr_value)) * (down_value - curr_value)
     if best_action == 'UP':
-        action_scores['UP'] = 1 / (curr_value + 1) * ((up_value - curr_value) + 1)
+        action_scores['UP'] = 1 / (np.exp(curr_value)) * ((up_value - curr_value) + 1)
     else:
-        action_scores['UP'] = 1 / (curr_value + 1) * (up_value - curr_value)
+        action_scores['UP'] = 1 / (np.exp(curr_value)) * (up_value - curr_value)
     if best_action == 'RIGHT':
-        action_scores['RIGHT'] = 1 / (curr_value + 1) * ((right_value - curr_value) + 1)
+        action_scores['RIGHT'] = 1 / (np.exp(curr_value)) * ((right_value - curr_value) + 1)
     else:
-        action_scores['RIGHT'] = 1 / (curr_value + 1) * (right_value - curr_value)
+        action_scores['RIGHT'] = 1 / (np.exp(curr_value)) * (right_value - curr_value)
     if best_action == 'LEFT':
-        action_scores['LEFT'] = 1 / (curr_value + 1) * ((left_value - curr_value) + 1)
+        action_scores['LEFT'] = 1 / (np.exp(curr_value)) * ((left_value - curr_value) + 1)
     else:
-        action_scores['LEFT'] = 1 / (curr_value + 1) * (left_value - curr_value)
+        action_scores['LEFT'] = 1 / (np.exp(curr_value)) * (left_value - curr_value)
     if best_action == 'WAIT':
-        action_scores['WAIT'] = 1 / (curr_value + 1) * ((curr_value - curr_value) + 1)
+        action_scores['WAIT'] = 1 / (np.exp(curr_value)) * ((curr_value - curr_value) + 1)
     else:
-        action_scores['WAIT'] = 1 / (curr_value + 1) * (curr_value - curr_value)
+        action_scores['WAIT'] = 1 / (np.exp(curr_value)) * (curr_value - curr_value)
+
 
     # Zero score negative score actions
     if action_scores['DOWN'] < 0: action_scores['DOWN'] = 0
