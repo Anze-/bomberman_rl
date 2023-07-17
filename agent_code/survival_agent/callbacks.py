@@ -182,6 +182,8 @@ def act(self, game_state):
     enemies = others
     arena_dim = arena.shape[0]
     state_value_matrix = np.matrix(np.ones((arena_dim, arena_dim)) * np.inf)
+    
+    #Assign safe value to each cell
 
     if not others:
         state_value_matrix = state_value_matrix = np.matrix(np.ones((arena_dim, arena_dim)) * 20)
@@ -216,7 +218,7 @@ def act(self, game_state):
                     if (state_value_matrix[i, j + 1] != 0): leg_move += 1
                 state_value_matrix[i, j] += leg_move
 
-                # put 0.3*t_until_expl and 0 in bomb range and bomb place if bomb closer then 8 cells to agent
+    # put 0.3*t_until_expl and 0 in bomb range and bomb place if bomb closer then 8 cells to agent
     for (xb, yb), t in bombs:
         dis = abs(xb - x) + abs(yb - y)
         if dis <= 8:
@@ -373,26 +375,16 @@ def behave(self, game_state: dict) -> Dict[str, float]:
                     if (state_value_matrix[i, j + 1] != 0): leg_move += 1
                 state_value_matrix[i, j] += leg_move
 
-                # put 0.3*t_until_expl and 0 in bomb range and bomb place if bomb closer then 8 cells to agent
+    # put 0.3*t_until_expl and 0 in bomb range and bomb place if bomb closer then 8 cells to agent
     for (xb, yb), t in bombs:
         dis = abs(xb - x) + abs(yb - y)
         if dis <= 8:
             blast = get_blast_coords(xb, yb, 3, arena)
             self.logger.debug(f'Bomb  ({bombs}), range {blast} ')
-            state_value_matrix[yb, xb] = 0
             for (i, j) in blast:
                 if state_value_matrix[j, i] != 0:
-                    #add 0.3*dis from bomb to blast coord where dis is manhattan distance from bomb
-                    #ex 0.9 0.6 0.3 0.0 0.3 0.6 0.9 at t=3
-                    # 0.6 0.4 0.2 0.0 0.2 0.4 0.6 at second step
-                    if t!=0:
-                        dis=abs(i-xb)+abs(j-yb)
-                        state_value_matrix[j, i]=dis*0.3
-                        state_value_matrix[j, i]=state_value_matrix[j, i]-((3-t)*0.1*dis)
-                    else:
-                        state_value_matrix[j, i] = 0
-    
-
+                    state_value_matrix[j, i] = 0.3 * t
+            state_value_matrix[yb, xb] = 0
 
     # put 0 in bomb range if distance from agent to explosion cell is equal
     f_deadzone = game_state['dead_zones']
@@ -403,18 +395,15 @@ def behave(self, game_state: dict) -> Dict[str, float]:
             if deadzone:
                 state_value_matrix[i, j] = 0
 
-    #
     # preserve values of only reachable cells
     reacheable = reacheable_nodes(state_value_matrix, (x, y), self)
-
     state_value_matrix = np.multiply(state_value_matrix, reacheable)
-    # return best_action
 
     # Choose direction as min path to safer cell with a star
-
     goals = np.where(state_value_matrix == np.amax(state_value_matrix))
     listOfGoals = list(zip(goals[0], goals[1]))
     dis = 50
+
     # Take the goal nearest to the agent
     for goal in listOfGoals:
         tempdis = heuristic((goal[1], goal[0]), (x, y))
@@ -425,7 +414,6 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     true_goal = (y_goal, x_goal)
     self.logger.debug(f'GOAL ({true_goal})')
     came_from, cost_so_far = a_star_search(state_value_matrix, start=(x, y), goal=(true_goal), self=self)
-
     path = reconstruct_path(came_from, start=(x, y), goal=true_goal)
 
     if not path:  # choose greedy action
@@ -464,10 +452,16 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     up_value = state_value_matrix[y - 1, x]
     down_value = state_value_matrix[y + 1, x]
 
+    # if an agent dropped a bomb, suggest only best action
     if curr_value == 0:
-        action_scores[best_action] = 1
+        if best_action == 'DOWN': action_scores['DOWN'] = 1 / (np.exp(curr_value)) * (down_value - curr_value)
+        if best_action == 'UP': action_scores['UP'] = 1 / (np.exp(curr_value)) * (up_value - curr_value)
+        if best_action == 'RIGHT': action_scores['RIGHT'] = 1 / (np.exp(curr_value)) * (right_value - curr_value)
+        if best_action == 'LEFT': action_scores['LEFT'] = 1 / (np.exp(curr_value)) * (left_value - curr_value)
+        if best_action == 'WAIT': action_scores['WAIT'] = 1 / (np.exp(curr_value)) * (curr_value - curr_value)
         return action_scores
-    # First version with bias towards best action
+    
+    # add bias towards best action
     if best_action == 'DOWN':
         action_scores['DOWN'] = 1 / (np.exp(curr_value)) * ((down_value - curr_value) + 1)
     else:
@@ -489,7 +483,6 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     else:
         action_scores['WAIT'] = 1 / (np.exp(curr_value)) * (curr_value - curr_value)
 
-
     # Zero score negative score actions
     if action_scores['DOWN'] < 0: action_scores['DOWN'] = 0
     if action_scores['UP'] < 0: action_scores['UP'] = 0
@@ -497,6 +490,7 @@ def behave(self, game_state: dict) -> Dict[str, float]:
     if action_scores['LEFT'] < 0: action_scores['LEFT'] = 0
     if action_scores['WAIT'] < 0: action_scores['WAIT'] = 0
 
+    # Discourage action bomb if agent does not have escape path
     state_value_matrix[y, x] = 1
     blast_on_agent = get_blast_coords(x, y, 3, arena)
     for blast in blast_on_agent:
