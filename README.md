@@ -1,7 +1,3 @@
-# bomberman_rl
-Setup for a project/competition amongst students to train a winning Reinforcement Learning agent for the classic game Bomberman.
-
-
 # Callbacks file
 ## this file must contain 2 mandatory functions
 `act` is called at every time step of the game:
