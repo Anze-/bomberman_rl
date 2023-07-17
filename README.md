@@ -56,7 +56,6 @@ the function requires two arguments: the coords (x,y) and the time (t). The func
 | **explosion_map** | array    | [17,17]   | 0,1                            | safe,explosion                         |
 
 
-# Single behavoiur 
 ## run a simulation
 To run a simulation  the best approach is to use the command:
 ```
