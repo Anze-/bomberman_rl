@@ -12,14 +12,15 @@ def act(self, game_state):
 ```
 where action is one of the following 6 strings
 `["UP", "DOWN", "LEFT", "RIGHT", "WAIT", "BOMB"] `
+This is used to test behaviours independently.
 
 
 
-`setup` is called only once at the beginning of the game, and **not** between multiple rounds of the same game:
+`behave` at every step of the game by the genetic agent:
 ```
-def setup(self):
+def behave(self, game_state):
     ...
-    return None
+    return {action: score,...}
 ```
 
 ## game_state
@@ -55,14 +56,19 @@ the function requires two arguments: the coords (x,y) and the time (t). The func
 | **explosion_map** | array    | [17,17]   | 0,1                            | safe,explosion                         |
 
 
-# Wall breaker
+# Single behavoiur 
 ## run a simulation
-To run a simulation the best approach is to use the command:
+To run a simulation  the best approach is to use the command:
 ```
 python main.py play --match-name "wall_breaker_t1" --save-replay --n-rounds 10 --my-agent wall_breaker
 ```
-## agent
+## train the genetic agent
 
-The code of any agent is provided in a subfolder of `agent_code`.
-Such folder contains a subfolder `logs` , icons and the main script `callbacks.py`.
+```
+python main.py play --n-rounds 10 --my-agent genetic_agent --train_genetic
+```
 
+## test the genetic agent
+```
+python main.py play --n-rounds 10 --my-agent genetic_agent
+```
